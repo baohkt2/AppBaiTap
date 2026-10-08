@@ -97,7 +97,6 @@ function TerminatorNode({ id, data, selected }: { id: string, data: any, selecte
   return (
     <>
       <NodeToolbar isVisible={selected} position={Position.Top} className="flex gap-1 bg-white p-1 rounded-xl shadow-lg border border-gray-100 mb-2">
-        <button onClick={() => onEditNode(id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={16}/></button>
         <button onClick={() => onDeleteNode(id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
       </NodeToolbar>
       <div style={{ ...nodeStyleBase, borderRadius: 25, borderColor: "#7c3aed", background: "#ede9fe", color: "#5b21b6", width: 140, height: 50 }}>
@@ -114,7 +113,6 @@ function ProcessNode({ id, data, selected }: { id: string, data: any, selected?:
   return (
     <>
       <NodeToolbar isVisible={selected} position={Position.Top} className="flex gap-1 bg-white p-1 rounded-xl shadow-lg border border-gray-100 mb-2">
-        <button onClick={() => onEditNode(id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={16}/></button>
         <button onClick={() => onDeleteNode(id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
       </NodeToolbar>
       <div style={{ ...nodeStyleBase, borderRadius: 8, borderColor: "#3b82f6", background: "#eff6ff", color: "#1e40af", width: 140, height: 50 }}>
@@ -131,7 +129,6 @@ function DecisionNode({ id, data, selected }: { id: string, data: any, selected?
   return (
     <>
       <NodeToolbar isVisible={selected} position={Position.Top} className="flex gap-1 bg-white p-1 rounded-xl shadow-lg border border-gray-100 mb-2">
-        <button onClick={() => onEditNode(id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={16}/></button>
         <button onClick={() => onDeleteNode(id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
       </NodeToolbar>
       <div style={{ position: "relative", width: 140, height: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -523,6 +520,7 @@ export default function TuDoMode({ question, questionId }: Props) {
             nodeTypes={nodeTypes}
             connectionMode={ConnectionMode.Loose}
             connectionRadius={40}
+            connectOnClick={false}
             fitView
             attributionPosition="bottom-left"
           >
@@ -532,7 +530,6 @@ export default function TuDoMode({ question, questionId }: Props) {
             {/* Edge action floating toolbar */}
             {selectedEdgeIds.length === 1 && (
               <Panel position="bottom-center" className="mb-4 flex gap-1 bg-white/90 backdrop-blur-md p-1.5 rounded-xl shadow-lg border border-gray-100">
-                <button onClick={editSelectedEdge} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={18}/></button>
                 <button onClick={deleteSelectedEdge} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={18}/></button>
               </Panel>
             )}
