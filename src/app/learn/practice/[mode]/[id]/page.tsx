@@ -73,7 +73,7 @@ export default function QuestionPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 relative z-50">
         <div className="flex items-center gap-1">
           <Link
             href={`/learn/practice/${mode}`}
