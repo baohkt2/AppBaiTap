@@ -21,6 +21,19 @@ export default function LessonTab() {
 
   const embedUrl = getEmbedUrl(lessonUrl);
 
+  function getDownloadUrl(url: string): string {
+    if (!url) return "";
+    if (url.includes("docs.google.com/document")) {
+      return url.replace(/\/edit.*$/, "/export?format=pdf");
+    }
+    if (url.includes("docs.google.com/presentation")) {
+      return url.replace(/\/edit.*$/, "/export/pdf");
+    }
+    return url;
+  }
+
+  const downloadUrl = getDownloadUrl(lessonUrl);
+
   if (!lessonUrl) {
     return (
       <motion.div
@@ -53,7 +66,7 @@ export default function LessonTab() {
           sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
         />
       </div>
-      <div className="text-center">
+      <div className="flex gap-2 justify-center">
         <a
           href={lessonUrl}
           target="_blank"
@@ -61,6 +74,14 @@ export default function LessonTab() {
           className="btn btn-outline btn-sm inline-flex"
         >
           Mở trong tab mới ↗
+        </a>
+        <a
+          href={downloadUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-primary btn-sm inline-flex"
+        >
+          ⬇️ Tải tài liệu (PDF)
         </a>
       </div>
     </div>
