@@ -1,0 +1,260 @@
+[
+  {
+    "id": "tt-sx-001",
+    "lesson": 16,
+    "mode": "sap_xep",
+    "structure": "tuan_tu",
+    "title": "Pha một ly nước cam",
+    "scenario": "Em hãy sắp xếp các bước pha một ly nước cam theo đúng thứ tự.",
+    "nodes": [
+      {"id":"n1","shape":"terminator","text":"Bắt đầu"},
+      {"id":"n2","shape":"process","text":"Lấy ly và cam"},
+      {"id":"n3","shape":"process","text":"Vắt cam lấy nước"},
+      {"id":"n4","shape":"process","text":"Cho đường vào ly"},
+      {"id":"n5","shape":"process","text":"Khuấy đều"},
+      {"id":"n6","shape":"terminator","text":"Kết thúc"}
+    ],
+    "edges": [
+      {"from":"n1","to":"n2"},
+      {"from":"n2","to":"n3"},
+      {"from":"n3","to":"n4"},
+      {"from":"n4","to":"n5"},
+      {"from":"n5","to":"n6"}
+    ],
+    "blanks": ["n2","n3","n4","n5"],
+    "distractors": ["Rửa bát"],
+    "explanation": "Đây là cấu trúc tuần tự: các bước được thực hiện lần lượt từ trên xuống dưới, không có rẽ nhánh."
+  },
+  {
+    "id": "tt-sx-002",
+    "lesson": 16,
+    "mode": "sap_xep",
+    "structure": "tuan_tu",
+    "title": "Nấu mì gói",
+    "scenario": "Em hãy sắp xếp các bước nấu mì gói theo đúng thứ tự.",
+    "nodes": [
+      {"id":"n1","shape":"terminator","text":"Bắt đầu"},
+      {"id":"n2","shape":"process","text":"Đun nước sôi"},
+      {"id":"n3","shape":"process","text":"Bỏ mì vào nồi"},
+      {"id":"n4","shape":"process","text":"Cho gói gia vị"},
+      {"id":"n5","shape":"process","text":"Múc mì ra tô"},
+      {"id":"n6","shape":"terminator","text":"Kết thúc"}
+    ],
+    "edges": [
+      {"from":"n1","to":"n2"},
+      {"from":"n2","to":"n3"},
+      {"from":"n3","to":"n4"},
+      {"from":"n4","to":"n5"},
+      {"from":"n5","to":"n6"}
+    ],
+    "blanks": ["n2","n3","n4","n5"],
+    "distractors": ["Gọt vỏ cam"],
+    "explanation": "Cấu trúc tuần tự: thực hiện từng bước một, không cần kiểm tra điều kiện nào."
+  },
+  {
+    "id": "rn-sx-001",
+    "lesson": 16,
+    "mode": "sap_xep",
+    "structure": "re_nhanh",
+    "title": "Đi học khi trời mưa",
+    "scenario": "Buổi sáng em chuẩn bị đi học. Nếu trời mưa thì mang áo mưa, nếu không thì đội nón. Hãy sắp xếp sơ đồ.",
+    "nodes": [
+      {"id":"n1","shape":"terminator","text":"Bắt đầu"},
+      {"id":"n2","shape":"decision","text":"Trời có mưa không?"},
+      {"id":"n3","shape":"process","text":"Mang áo mưa"},
+      {"id":"n4","shape":"process","text":"Đội nón"},
+      {"id":"n5","shape":"process","text":"Đi học"},
+      {"id":"n6","shape":"terminator","text":"Kết thúc"}
+    ],
+    "edges": [
+      {"from":"n1","to":"n2"},
+      {"from":"n2","to":"n3","label":"Đúng"},
+      {"from":"n2","to":"n4","label":"Sai"},
+      {"from":"n3","to":"n5"},
+      {"from":"n4","to":"n5"},
+      {"from":"n5","to":"n6"}
+    ],
+    "blanks": ["n2","n3","n4","n5"],
+    "distractors": ["Mang ô","Gọi taxi"],
+    "explanation": "Hình thoi kiểm tra trời mưa. Mỗi nhánh dẫn tới một hành động khác nhau rồi cùng đi học."
+  },
+  {
+    "id": "lp-sx-001",
+    "lesson": 16,
+    "mode": "sap_xep",
+    "structure": "lap",
+    "title": "Nhặt rác sân trường",
+    "scenario": "Em nhặt rác ở sân trường: nhặt từng món rác rồi bỏ vào túi, lặp lại cho đến khi sân hết rác.",
+    "nodes": [
+      {"id":"n1","shape":"terminator","text":"Bắt đầu"},
+      {"id":"n2","shape":"process","text":"Nhặt một món rác"},
+      {"id":"n3","shape":"process","text":"Bỏ rác vào túi"},
+      {"id":"n4","shape":"decision","text":"Sân còn rác không?"},
+      {"id":"n5","shape":"terminator","text":"Kết thúc"}
+    ],
+    "edges": [
+      {"from":"n1","to":"n2"},
+      {"from":"n2","to":"n3"},
+      {"from":"n3","to":"n4"},
+      {"from":"n4","to":"n2","label":"Đúng"},
+      {"from":"n4","to":"n5","label":"Sai"}
+    ],
+    "blanks": ["n2","n3","n4"],
+    "distractors": ["Quét nhà"],
+    "explanation": "Hình thoi kiểm tra điều kiện lặp. Nếu sân còn rác, quay lại nhặt tiếp. Đây là cấu trúc lặp."
+  },
+  {
+    "id": "tt-dk-001",
+    "lesson": 16,
+    "mode": "dien_khuyet",
+    "structure": "tuan_tu",
+    "title": "Rửa tay đúng cách",
+    "scenario": "Em hãy điền các bước rửa tay đúng cách vào sơ đồ khối.",
+    "nodes": [
+      {"id":"n1","shape":"terminator","text":"Bắt đầu"},
+      {"id":"n2","shape":"process","text":"Mở vòi nước","accepted":["mở vòi nước","mở nước","vặn vòi nước"]},
+      {"id":"n3","shape":"process","text":"Xoa xà phòng","accepted":["xoa xà phòng","thoa xà phòng","lấy xà phòng xoa"]},
+      {"id":"n4","shape":"process","text":"Rửa sạch tay","accepted":["rửa sạch tay","rửa tay","xả nước rửa tay"]},
+      {"id":"n5","shape":"process","text":"Lau khô tay"},
+      {"id":"n6","shape":"terminator","text":"Kết thúc"}
+    ],
+    "edges": [
+      {"from":"n1","to":"n2"},
+      {"from":"n2","to":"n3"},
+      {"from":"n3","to":"n4"},
+      {"from":"n4","to":"n5"},
+      {"from":"n5","to":"n6"}
+    ],
+    "blanks": ["n2","n3"],
+    "distractors": [],
+    "explanation": "Rửa tay theo thứ tự: mở nước → xoa xà phòng → rửa sạch → lau khô. Đây là cấu trúc tuần tự."
+  },
+  {
+    "id": "rn-dk-001",
+    "lesson": 16,
+    "mode": "dien_khuyet",
+    "structure": "re_nhanh",
+    "title": "Qua đường an toàn",
+    "scenario": "Em muốn sang đường. Nếu đèn xanh thì đi, nếu đèn đỏ thì dừng chờ. Điền vào các ô trống.",
+    "nodes": [
+      {"id":"n1","shape":"terminator","text":"Bắt đầu"},
+      {"id":"n2","shape":"process","text":"Đến ngã tư"},
+      {"id":"n3","shape":"decision","text":"Đèn có xanh không?","accepted":["đèn có xanh không?","đèn xanh không?","đèn có xanh?"]},
+      {"id":"n4","shape":"process","text":"Sang đường","accepted":["sang đường","đi sang đường","băng qua đường"]},
+      {"id":"n5","shape":"process","text":"Dừng lại chờ","accepted":["dừng lại chờ","dừng chờ","chờ đèn xanh"]},
+      {"id":"n6","shape":"terminator","text":"Kết thúc"}
+    ],
+    "edges": [
+      {"from":"n1","to":"n2"},
+      {"from":"n2","to":"n3"},
+      {"from":"n3","to":"n4","label":"Đúng"},
+      {"from":"n3","to":"n5","label":"Sai"},
+      {"from":"n4","to":"n6"},
+      {"from":"n5","to":"n6"}
+    ],
+    "blanks": ["n3","n4","n5"],
+    "distractors": [],
+    "explanation": "Hình thoi kiểm tra đèn xanh hay đỏ, rồi rẽ vào nhánh tương ứng. Hai nhánh cùng về Kết thúc."
+  },
+  {
+    "id": "lp-dk-001",
+    "lesson": 16,
+    "mode": "dien_khuyet",
+    "structure": "lap",
+    "title": "Tưới cây trong vườn",
+    "scenario": "Em tưới từng cây trong vườn cho đến khi tưới hết. Điền vào các ô trống.",
+    "nodes": [
+      {"id":"n1","shape":"terminator","text":"Bắt đầu"},
+      {"id":"n2","shape":"process","text":"Lấy bình tưới nước"},
+      {"id":"n3","shape":"process","text":"Tưới một cây","accepted":["tưới một cây","tưới cây","tưới nước cho cây"]},
+      {"id":"n4","shape":"decision","text":"Còn cây chưa tưới không?","accepted":["còn cây chưa tưới không?","còn cây nào chưa tưới?","vườn còn cây chưa tưới?"]},
+      {"id":"n5","shape":"terminator","text":"Kết thúc"}
+    ],
+    "edges": [
+      {"from":"n1","to":"n2"},
+      {"from":"n2","to":"n3"},
+      {"from":"n3","to":"n4"},
+      {"from":"n4","to":"n3","label":"Đúng"},
+      {"from":"n4","to":"n5","label":"Sai"}
+    ],
+    "blanks": ["n3","n4"],
+    "distractors": [],
+    "explanation": "Kiểm tra còn cây chưa tưới thì quay lại tưới tiếp. Đây là cấu trúc lặp."
+  },
+  {
+    "id": "rn-td-001",
+    "lesson": 16,
+    "mode": "tu_do",
+    "structure": "re_nhanh",
+    "title": "Chọn quần áo theo thời tiết",
+    "scenario": "Sáng ngủ dậy, em nhìn ra ngoài. Nếu trời lạnh thì mặc áo ấm, nếu không thì mặc áo mỏng, rồi đi học. Hãy vẽ sơ đồ khối dùng cấu trúc rẽ nhánh.",
+    "nodes": [
+      {"id":"n1","shape":"terminator","text":"Bắt đầu"},
+      {"id":"n2","shape":"decision","text":"Trời có lạnh không?"},
+      {"id":"n3","shape":"process","text":"Mặc áo ấm"},
+      {"id":"n4","shape":"process","text":"Mặc áo mỏng"},
+      {"id":"n5","shape":"process","text":"Đi học"},
+      {"id":"n6","shape":"terminator","text":"Kết thúc"}
+    ],
+    "edges": [
+      {"from":"n1","to":"n2"},
+      {"from":"n2","to":"n3","label":"Đúng"},
+      {"from":"n2","to":"n4","label":"Sai"},
+      {"from":"n3","to":"n5"},
+      {"from":"n4","to":"n5"},
+      {"from":"n5","to":"n6"}
+    ],
+    "blanks": [],
+    "distractors": [],
+    "explanation": "Hình thoi kiểm tra thời tiết, mỗi nhánh có hành động khác, rồi nhập lại đi học."
+  },
+  {
+    "id": "lp-td-001",
+    "lesson": 16,
+    "mode": "tu_do",
+    "structure": "lap",
+    "title": "Học bài cho đến khi thuộc",
+    "scenario": "Em đọc bài, rồi tự kiểm tra xem đã thuộc chưa. Nếu chưa thuộc thì đọc lại. Hãy vẽ sơ đồ khối dùng cấu trúc lặp.",
+    "nodes": [
+      {"id":"n1","shape":"terminator","text":"Bắt đầu"},
+      {"id":"n2","shape":"process","text":"Đọc bài một lần"},
+      {"id":"n3","shape":"decision","text":"Đã thuộc bài chưa?"},
+      {"id":"n4","shape":"terminator","text":"Kết thúc"}
+    ],
+    "edges": [
+      {"from":"n1","to":"n2"},
+      {"from":"n2","to":"n3"},
+      {"from":"n3","to":"n2","label":"Sai"},
+      {"from":"n3","to":"n4","label":"Đúng"}
+    ],
+    "blanks": [],
+    "distractors": [],
+    "explanation": "Hình thoi hỏi đã thuộc chưa. Nếu chưa thuộc (Sai), quay lại đọc bài. Nếu thuộc rồi (Đúng), kết thúc."
+  },
+  {
+    "id": "tt-td-001",
+    "lesson": 16,
+    "mode": "tu_do",
+    "structure": "tuan_tu",
+    "title": "Chuẩn bị cặp sách đi học",
+    "scenario": "Em chuẩn bị cặp sách để đi học buổi sáng: kiểm tra thời khóa biểu, bỏ sách vở vào cặp, bỏ hộp bút, mang cặp đi. Hãy vẽ sơ đồ khối dùng cấu trúc tuần tự.",
+    "nodes": [
+      {"id":"n1","shape":"terminator","text":"Bắt đầu"},
+      {"id":"n2","shape":"process","text":"Xem thời khóa biểu"},
+      {"id":"n3","shape":"process","text":"Bỏ sách vở vào cặp"},
+      {"id":"n4","shape":"process","text":"Bỏ hộp bút vào cặp"},
+      {"id":"n5","shape":"process","text":"Mang cặp đi học"},
+      {"id":"n6","shape":"terminator","text":"Kết thúc"}
+    ],
+    "edges": [
+      {"from":"n1","to":"n2"},
+      {"from":"n2","to":"n3"},
+      {"from":"n3","to":"n4"},
+      {"from":"n4","to":"n5"},
+      {"from":"n5","to":"n6"}
+    ],
+    "blanks": [],
+    "distractors": [],
+    "explanation": "Các bước được thực hiện lần lượt từ trên xuống, không có điều kiện. Đây là cấu trúc tuần tự."
+  }
+]
