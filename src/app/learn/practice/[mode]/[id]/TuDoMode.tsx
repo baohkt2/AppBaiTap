@@ -191,7 +191,11 @@ export default function TuDoMode({ question, questionId }: Props) {
   const [history, setHistory] = useState<{ nodes: Node[]; edges: Edge[] }[]>([{ nodes: [], edges: [] }]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [rfInstance, setRfInstance] = useState<any>(null);
 
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -201,6 +205,7 @@ export default function TuDoMode({ question, questionId }: Props) {
   const [editVal, setEditVal] = useState("");
 
   const [nodeMenuOpen, setNodeMenuOpen] = useState(false);
+  const [ovalMenuOpen, setOvalMenuOpen] = useState(false);
   const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -304,16 +309,43 @@ export default function TuDoMode({ question, questionId }: Props) {
       alert("Chỉ được tạo tối đa 12 nút");
       return;
     }
+    
+    // Calculate center of current view
+    let x = 100;
+    let y = 100 + nodes.length * 20;
+    
+    if (rfInstance) {
+      // Find center of the React Flow wrapper
+      const wrapper = reactFlowWrapper.current;
+      if (wrapper) {
+        const rect = wrapper.getBoundingClientRect();
+        const center = {
+          x: rect.width / 2,
+          y: rect.height / 2,
+        };
+        const flowPos = rfInstance.screenToFlowPosition({
+          x: rect.left + center.x,
+          y: rect.top + center.y
+        });
+        
+        // Add random offset so they don't stack perfectly on top of each other
+        x = flowPos.x - 70 + (Math.random() * 40 - 20);
+        y = flowPos.y - 25 + (Math.random() * 40 - 20);
+      }
+    }
+
     const id = `node_${Date.now()}`;
     const newNode: Node = {
       id,
       type,
-      position: { x: 50, y: 50 + nodes.length * 20 },
+      position: { x, y },
       data: { label: defaultLabel },
     };
     const newNodes = [...nodes, newNode];
     setNodes(newNodes);
     saveHistory(newNodes, edges);
+    setNodeMenuOpen(false);
+    setOvalMenuOpen(false);
   };
 
   const handleNodeDoubleClick = (_: React.MouseEvent, node: Node) => {
@@ -446,21 +478,13 @@ export default function TuDoMode({ question, questionId }: Props) {
           border-radius: 50%;
           background-color: #3b82f6;
           opacity: 0;
+          pointer-events: none;
           transition: opacity 0.2s;
         }
         .react-flow__node:hover .custom-handle,
         .react-flow__node.selected .custom-handle {
           opacity: 1;
-        }
-        /* Hit area extension */
-        .custom-handle::after {
-          content: "";
-          position: absolute;
-          top: -10px;
-          left: -10px;
-          right: -10px;
-          bottom: -10px;
-          background: transparent;
+          pointer-events: auto;
         }
         .error-node {
           filter: drop-shadow(0 0 8px #ef4444);
@@ -486,19 +510,21 @@ export default function TuDoMode({ question, questionId }: Props) {
           <ReactFlow
             nodes={nodes}
             edges={edges}
+            onInit={setRfInstance}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeDoubleClick={handleNodeDoubleClick}
             onEdgeDoubleClick={handleEdgeDoubleClick}
-            onSelectionChange={({ edges: selEdges }) => {
+            onSelectionChange={({ nodes: selNodes, edges: selEdges }) => {
+              setSelectedNodeIds(selNodes.map(n => n.id));
               setSelectedEdgeIds(selEdges.map(e => e.id));
             }}
             nodeTypes={nodeTypes}
             connectionMode={ConnectionMode.Loose}
             connectionRadius={40}
             fitView
-            attributionPosition="bottom-right"
+            attributionPosition="bottom-left"
           >
             <Background color="#ccc" gap={16} />
             <Controls />
@@ -514,7 +540,7 @@ export default function TuDoMode({ question, questionId }: Props) {
             {/* Top Left Menu for Adding Nodes */}
             <Panel position="top-left" className="m-2 flex flex-row items-center gap-2">
               <button 
-                onClick={() => setNodeMenuOpen(!nodeMenuOpen)} 
+                onClick={() => { setNodeMenuOpen(!nodeMenuOpen); setOvalMenuOpen(false); }} 
                 className="p-3 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 text-gray-700 transition-colors z-10"
               >
                 <Plus size={24} className={`transition-transform duration-300 ${nodeMenuOpen ? 'rotate-45' : ''}`} />
@@ -528,13 +554,20 @@ export default function TuDoMode({ question, questionId }: Props) {
                     transition={{ duration: 0.2 }}
                     className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-2 rounded-full shadow-md border border-gray-100 origin-left"
                   >
-                    <button onClick={() => { addNode("terminator", "Bắt đầu"); setNodeMenuOpen(false); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Bắt đầu / Kết thúc">
-                       <div className="w-8 h-4 rounded-full border-2 border-purple-500 bg-purple-100" />
-                    </button>
-                    <button onClick={() => { addNode("process", "Thao tác"); setNodeMenuOpen(false); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Thao tác">
+                    {!ovalMenuOpen ? (
+                      <button onClick={() => setOvalMenuOpen(true)} className="p-2 hover:bg-gray-100 rounded-full transition-colors flex items-center gap-1" title="Khối Oval (Bắt đầu/Kết thúc)">
+                         <div className="w-8 h-4 rounded-full border-2 border-purple-500 bg-purple-100" />
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1 bg-purple-50 p-1 rounded-full border border-purple-200">
+                        <button onClick={() => addNode("terminator", "Bắt đầu")} className="px-3 py-1 text-xs font-bold text-purple-700 hover:bg-purple-100 rounded-full">Bắt đầu</button>
+                        <button onClick={() => addNode("terminator", "Kết thúc")} className="px-3 py-1 text-xs font-bold text-purple-700 hover:bg-purple-100 rounded-full">Kết thúc</button>
+                      </div>
+                    )}
+                    <button onClick={() => addNode("process", "Thao tác")} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Thao tác">
                        <div className="w-8 h-5 rounded border-2 border-blue-500 bg-blue-100" />
                     </button>
-                    <button onClick={() => { addNode("decision", "Điều kiện?"); setNodeMenuOpen(false); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Điều kiện">
+                    <button onClick={() => addNode("decision", "Điều kiện?")} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Điều kiện">
                        <div className="w-5 h-5 border-2 border-amber-500 bg-amber-100 rotate-45 mx-1" />
                     </button>
                   </motion.div>
@@ -542,37 +575,39 @@ export default function TuDoMode({ question, questionId }: Props) {
               </AnimatePresence>
             </Panel>
 
-            {/* Bottom Left Menu for Tools */}
-            <Panel position="bottom-left" className="m-2 mb-12 flex flex-col-reverse items-center gap-2">
-              <button 
-                onClick={() => setToolsMenuOpen(!toolsMenuOpen)} 
-                className="p-3 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 text-gray-700 transition-colors z-10"
-              >
-                <Settings2 size={24} className={`transition-transform duration-300 ${toolsMenuOpen ? 'rotate-90' : ''}`} />
-              </button>
-              <AnimatePresence>
-                {toolsMenuOpen && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 20, scale: 0.8 }}
-                    transition={{ duration: 0.2 }}
-                    className="flex flex-col gap-2 bg-white/90 backdrop-blur-md p-2 rounded-full shadow-md border border-gray-100 origin-bottom"
-                  >
-                    <button onClick={undo} disabled={historyIndex === 0} className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-30 text-gray-700 transition-colors" title="Hoàn tác">
-                      <Undo2 size={20} />
-                    </button>
-                    <button onClick={redo} disabled={historyIndex === history.length - 1} className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-30 text-gray-700 transition-colors" title="Làm lại">
-                      <Redo2 size={20} />
-                    </button>
-                    <div className="h-px bg-gray-200 w-full"></div>
-                    <button onClick={() => { onLayout(); setToolsMenuOpen(false); }} className="p-2 hover:bg-blue-50 rounded-full text-blue-600 transition-colors" title="Tự động sắp xếp">
-                      <Wand2 size={20} />
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </Panel>
+            {/* Bottom Right Menu for Tools - Hidden when elements are selected */}
+            {selectedNodeIds.length === 0 && selectedEdgeIds.length === 0 && (
+              <Panel position="bottom-right" className="m-2 mb-8 flex flex-col-reverse items-center gap-2">
+                <button 
+                  onClick={() => setToolsMenuOpen(!toolsMenuOpen)} 
+                  className="p-3 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 text-gray-700 transition-colors z-10"
+                >
+                  <Settings2 size={24} className={`transition-transform duration-300 ${toolsMenuOpen ? 'rotate-90' : ''}`} />
+                </button>
+                <AnimatePresence>
+                  {toolsMenuOpen && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 20, scale: 0.8 }}
+                      transition={{ duration: 0.2 }}
+                      className="flex flex-col gap-2 bg-white/90 backdrop-blur-md p-2 rounded-full shadow-md border border-gray-100 origin-bottom"
+                    >
+                      <button onClick={undo} disabled={historyIndex === 0} className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-30 text-gray-700 transition-colors" title="Hoàn tác">
+                        <Undo2 size={20} />
+                      </button>
+                      <button onClick={redo} disabled={historyIndex === history.length - 1} className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-30 text-gray-700 transition-colors" title="Làm lại">
+                        <Redo2 size={20} />
+                      </button>
+                      <div className="h-px bg-gray-200 w-full"></div>
+                      <button onClick={() => { onLayout(); setToolsMenuOpen(false); }} className="p-2 hover:bg-blue-50 rounded-full text-blue-600 transition-colors" title="Tự động sắp xếp">
+                        <Wand2 size={20} />
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Panel>
+            )}
             
           </ReactFlow>
         </FlowActionsContext.Provider>
