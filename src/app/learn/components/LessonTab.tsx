@@ -55,16 +55,27 @@ export default function LessonTab() {
   return (
     <div className="space-y-3">
       <div
-        className="card overflow-auto w-full"
-        style={{ height: "80vh", minHeight: "400px", WebkitOverflowScrolling: "touch" }}
+        className="card overflow-hidden w-full relative"
+        style={{ height: "80vh", minHeight: "400px" }}
       >
-        <div style={{ minWidth: "800px", height: "100%" }}>
+        {/* Mobile: scale down a large container so the doc fits the screen */}
+        <div className="block md:hidden w-[250%] h-[250%] origin-top-left scale-[0.4]">
           <iframe
             src={embedUrl}
             className="w-full h-full border-0"
             title="Tài liệu bài học"
             allow="autoplay"
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"
+            allowFullScreen
+          />
+        </div>
+        {/* Desktop: normal full width */}
+        <div className="hidden md:block w-full h-full">
+          <iframe
+            src={embedUrl}
+            className="w-full h-full border-0"
+            title="Tài liệu bài học"
+            allow="autoplay"
+            allowFullScreen
           />
         </div>
       </div>
