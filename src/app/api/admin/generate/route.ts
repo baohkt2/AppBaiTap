@@ -39,10 +39,8 @@ export async function POST(req: NextRequest) {
     .map((q: any) => q.data?.title)
     .filter(Boolean) as string[];
 
-  const results: Array<{ id: string; title: string; success: boolean; errors?: string[] }> = [];
-
-  // Generate one at a time (sequential to avoid Vercel timeout)
-  for (let i = 0; i < count; i++) {
+  // Generate concurrently for speed
+  const promises = Array.from({ length: count }).map(async (_, i) => {
     let success = false;
     let lastErrors: string[] = [];
     
@@ -55,7 +53,7 @@ export async function POST(req: NextRequest) {
           currentMode,
           currentStructure,
           theme,
-          [...existingTitles, ...results.map((r) => r.title)]
+          existingTitles
         );
 
         // If retrying, append error feedback
@@ -108,23 +106,22 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        results.push({ id: questionId, title: parsed.data.title, success: true });
         success = true;
-        break;
+        return { id: questionId, title: parsed.data.title, success: true };
       } catch (err) {
         lastErrors = [(err as Error).message ?? "Unknown error"];
       }
     }
 
-    if (!success) {
-      results.push({
-        id: "",
-        title: `Câu ${i + 1} thất bại`,
-        success: false,
-        errors: lastErrors,
-      });
-    }
-  }
+    return {
+      id: "",
+      title: `Câu ${i + 1} thất bại`,
+      success: false,
+      errors: lastErrors,
+    };
+  });
+
+  const results = await Promise.all(promises);
 
   return NextResponse.json({ results });
 }

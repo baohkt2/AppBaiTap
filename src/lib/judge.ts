@@ -51,12 +51,10 @@ export async function judgeDienKhuyet(
   question: Question,
   needsJudge: { nodeId: string; studentText: string; accepted: string[] }[]
 ): Promise<{ nodeId: string; correct: boolean; hint?: string }[]> {
-  const results: { nodeId: string; correct: boolean; hint?: string }[] = [];
-
-  for (const item of needsJudge) {
+  const promises = needsJudge.map(async (item) => {
     // Determine the context by finding edges connected to this node
     const node = question.nodes.find(n => n.id === item.nodeId);
-    if (!node) continue;
+    if (!node) return { nodeId: item.nodeId, correct: false };
     
     // Simplistic context extraction
     const prevEdges = question.edges.filter(e => e.to === item.nodeId);
@@ -88,15 +86,16 @@ export async function judgeDienKhuyet(
           required: ["correct"]
         }
       });
-      results.push({ nodeId: item.nodeId, correct: response.correct, hint: response.hint });
+      return { nodeId: item.nodeId, correct: response.correct, hint: response.hint };
     } catch (e) {
       console.error("DienKhuyet judge error:", e);
       // Fallback to false if Gemini fails
-      results.push({ nodeId: item.nodeId, correct: false });
+      return { nodeId: item.nodeId, correct: false };
     }
-  }
+  });
 
-  return results;
+  const results = await Promise.all(promises);
+  return results.filter(r => r !== null);
 }
 
 export async function judgeTuDo(
