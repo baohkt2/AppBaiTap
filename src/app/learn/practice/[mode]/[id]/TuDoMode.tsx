@@ -16,6 +16,7 @@ import {
   Handle,
   Position,
   ConnectionMode,
+  Panel,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { motion, AnimatePresence } from "framer-motion";
@@ -382,46 +383,7 @@ export default function TuDoMode({ question, questionId }: Props) {
           50% { stroke-width: 5px; }
         }
       `}</style>
-      <div className="card p-3 flex flex-wrap gap-2 justify-center bg-gray-50">
-        <button onClick={() => addNode("terminator", "Bắt đầu")} className="btn btn-outline btn-sm bg-white" style={{ borderColor: "#7c3aed", color: "#5b21b6" }}>
-          + Oval (Bắt đầu)
-        </button>
-        <button onClick={() => addNode("terminator", "Kết thúc")} className="btn btn-outline btn-sm bg-white" style={{ borderColor: "#7c3aed", color: "#5b21b6" }}>
-          + Oval (Kết thúc)
-        </button>
-        <button onClick={() => addNode("process", "Thao tác")} className="btn btn-outline btn-sm bg-white" style={{ borderColor: "#3b82f6", color: "#1e40af" }}>
-          + Chữ nhật (Thao tác)
-        </button>
-        <button onClick={() => addNode("decision", "Điều kiện?")} className="btn btn-outline btn-sm bg-white" style={{ borderColor: "#f59e0b", color: "#92400e" }}>
-          + Hình thoi (Điều kiện)
-        </button>
-        <div className="w-full border-t border-gray-200 my-1"></div>
-        <button onClick={undo} disabled={historyIndex === 0} className="btn btn-ghost btn-sm">
-          ↩️ Hoàn tác
-        </button>
-        <button onClick={redo} disabled={historyIndex === history.length - 1} className="btn btn-ghost btn-sm">
-          ↪️ Làm lại
-        </button>
-        <button 
-          onClick={editSelected} 
-          disabled={selectedNodeIds.length + selectedEdgeIds.length !== 1} 
-          className="btn btn-outline btn-sm"
-        >
-          ✏️ Sửa mục đang chọn
-        </button>
-        <button 
-          onClick={deleteSelected} 
-          disabled={!selectedNodeIds.length && !selectedEdgeIds.length} 
-          className="btn btn-outline btn-sm text-red-600 border-red-200"
-        >
-          🗑 Xóa mục đang chọn
-        </button>
-        <div className="w-full text-center text-xs text-gray-500 mt-1">
-          💡 Chọn khối/mũi tên rồi bấm Sửa hoặc Xóa. Chạm khối để hiện mũi tên, kéo để nối.
-        </div>
-      </div>
-
-      <div className="card" style={{ height: 500 }} ref={reactFlowWrapper}>
+      <div className="card w-full shadow-inner border border-gray-200 overflow-hidden" style={{ height: "65vh", minHeight: 450 }} ref={reactFlowWrapper}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -442,7 +404,52 @@ export default function TuDoMode({ question, questionId }: Props) {
         >
           <Background color="#ccc" gap={16} />
           <Controls />
+          
+          <Panel position="top-center" className="flex flex-wrap gap-2 justify-center bg-white/90 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-gray-100 max-w-[95vw] mt-2">
+            <button onClick={() => addNode("terminator", "Bắt đầu")} className="btn btn-sm rounded-full bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 hover:border-purple-300">
+              Bắt đầu
+            </button>
+            <button onClick={() => addNode("terminator", "Kết thúc")} className="btn btn-sm rounded-full bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 hover:border-purple-300">
+              Kết thúc
+            </button>
+            <button onClick={() => addNode("process", "Thao tác")} className="btn btn-sm rounded-full bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300">
+              Thao tác
+            </button>
+            <button onClick={() => addNode("decision", "Điều kiện?")} className="btn btn-sm rounded-full bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-300">
+              Điều kiện
+            </button>
+          </Panel>
+
+          <Panel position="bottom-center" className="flex flex-wrap gap-2 justify-center bg-white/90 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-gray-100 max-w-[95vw] mb-8">
+            <button onClick={undo} disabled={historyIndex === 0} className="btn btn-sm btn-ghost rounded-full" title="Hoàn tác">
+              ↩️
+            </button>
+            <button onClick={redo} disabled={historyIndex === history.length - 1} className="btn btn-sm btn-ghost rounded-full" title="Làm lại">
+              ↪️
+            </button>
+            <div className="w-px bg-gray-200 mx-1"></div>
+            <button 
+              onClick={editSelected} 
+              disabled={selectedNodeIds.length + selectedEdgeIds.length !== 1} 
+              className="btn btn-sm rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 border-none disabled:bg-gray-100 disabled:text-gray-400"
+              title="Sửa mục đang chọn"
+            >
+              ✏️ Sửa
+            </button>
+            <button 
+              onClick={deleteSelected} 
+              disabled={!selectedNodeIds.length && !selectedEdgeIds.length} 
+              className="btn btn-sm rounded-full text-red-600 bg-red-50 hover:bg-red-100 border-none disabled:bg-gray-100 disabled:text-gray-400"
+              title="Xóa mục đang chọn"
+            >
+              🗑 Xóa
+            </button>
+          </Panel>
+          
         </ReactFlow>
+      </div>
+      <div className="text-center text-xs text-gray-500 mb-2 mt-1">
+        💡 Kéo thả từ các điểm tròn trên khối để nối mũi tên. Chạm đúp để sửa chữ.
       </div>
 
       {/* Edit Modal */}
