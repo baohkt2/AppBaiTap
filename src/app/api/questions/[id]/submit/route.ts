@@ -71,6 +71,7 @@ export async function POST(
 
   let correct = false;
   let wrongNodeIds: string[] = [];
+  let wrongEdgeIds: string[] = [];
   let message = "";
   let pointsAwarded = 0;
 
@@ -141,6 +142,8 @@ export async function POST(
       const judgeResult = await judgeTuDo(question, answerParsed.data);
       correct = judgeResult.correct;
       message = judgeResult.correct ? "Chính xác! " + (judgeResult.reason ?? "") : judgeResult.reason;
+      wrongNodeIds = judgeResult.errorNodeIds ?? [];
+      wrongEdgeIds = judgeResult.errorEdgeIds ?? [];
     }
   }
 
@@ -185,6 +188,7 @@ export async function POST(
     pointsAwarded,
     totalPoints,
     wrongNodeIds: correct ? undefined : wrongNodeIds,
+    wrongEdgeIds: correct ? undefined : wrongEdgeIds,
     message,
     explanation: correct ? question.explanation : undefined,
     modelAnswer: {

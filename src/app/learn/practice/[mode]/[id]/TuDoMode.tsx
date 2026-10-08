@@ -110,6 +110,8 @@ interface SubmitResult {
   pointsAwarded: number;
   totalPoints: number;
   message: string;
+  wrongNodeIds?: string[];
+  wrongEdgeIds?: string[];
 }
 
 export default function TuDoMode({ question, questionId }: Props) {
@@ -305,8 +307,24 @@ export default function TuDoMode({ question, questionId }: Props) {
       if (data.correct) {
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
         refreshStudent();
+        
+        // Clear errors
+        setNodes(nds => nds.map(n => ({ ...n, className: "" })));
+        setEdges(eds => eds.map(e => ({ ...e, className: "" })));
       } else {
         setFailCount(c => c + 1);
+        
+        // Highlight errors
+        if (data.wrongNodeIds || data.wrongEdgeIds) {
+          setNodes(nds => nds.map(n => ({
+            ...n,
+            className: data.wrongNodeIds?.includes(n.id) ? "error-node" : "",
+          })));
+          setEdges(eds => eds.map(e => ({
+            ...e,
+            className: data.wrongEdgeIds?.includes(e.id) ? "error-edge" : "",
+          })));
+        }
       }
     } catch {
       setResult({
@@ -345,6 +363,23 @@ export default function TuDoMode({ question, questionId }: Props) {
           right: -10px;
           bottom: -10px;
           background: transparent;
+        }
+        .error-node {
+          filter: drop-shadow(0 0 8px #ef4444);
+          animation: pulse-red 1.5s infinite;
+        }
+        @keyframes pulse-red {
+          0%, 100% { filter: drop-shadow(0 0 4px #ef4444); transform: scale(1); }
+          50% { filter: drop-shadow(0 0 10px #ef4444); transform: scale(1.02); }
+        }
+        .error-edge .react-flow__edge-path {
+          stroke: #ef4444 !important;
+          stroke-width: 3px !important;
+          animation: pulse-stroke 1.5s infinite;
+        }
+        @keyframes pulse-stroke {
+          0%, 100% { stroke-width: 3px; }
+          50% { stroke-width: 5px; }
         }
       `}</style>
       <div className="card p-3 flex flex-wrap gap-2 justify-center bg-gray-50">

@@ -101,8 +101,8 @@ export async function judgeDienKhuyet(
 
 export async function judgeTuDo(
   question: Question,
-  studentDiagram: { nodes: Record<string, unknown>[]; edges: Record<string, unknown>[] }
-): Promise<{ correct: boolean; reason: string }> {
+  studentDiagram: { nodes: Record<string, any>[]; edges: Record<string, any>[] }
+): Promise<{ correct: boolean; reason: string; errorNodeIds?: string[]; errorEdgeIds?: string[] }> {
   const refDiagramStr = JSON.stringify({
     nodes: question.nodes.map(n => ({ shape: n.shape, text: n.text })),
     edges: question.edges.map(e => {
@@ -113,11 +113,11 @@ export async function judgeTuDo(
   }, null, 2);
 
   const studentDiagramStr = JSON.stringify({
-    nodes: studentDiagram.nodes.map(n => ({ shape: n.shape, text: n.text })),
+    nodes: studentDiagram.nodes.map(n => ({ id: n.id, shape: n.shape, text: n.text })),
     edges: studentDiagram.edges.map(e => {
       const from = studentDiagram.nodes.find(n => n.id === e.from)?.text;
       const to = studentDiagram.nodes.find(n => n.id === e.to)?.text;
-      return { from, to, label: e.label };
+      return { id: e.id, fromId: e.from, toId: e.to, from, to, label: e.label };
     })
   }, null, 2);
 
@@ -129,20 +129,22 @@ export async function judgeTuDo(
   );
 
   try {
-    return await callGemini<{ correct: boolean; reason: string }>({
+    return await callGemini<{ correct: boolean; reason: string; errorNodeIds?: string[]; errorEdgeIds?: string[] }>({
       systemPrompt: system,
       userPrompt: user,
       responseSchema: {
         type: "object",
         properties: {
           correct: { type: "boolean" },
-          reason: { type: "string" }
+          reason: { type: "string" },
+          errorNodeIds: { type: "array", items: { type: "string" } },
+          errorEdgeIds: { type: "array", items: { type: "string" } }
         },
         required: ["correct", "reason"]
       }
     });
   } catch (e) {
     console.error("TuDo judge error:", e);
-    return { correct: false, reason: "Lỗi hệ thống chấm điểm, thử lại sau nhé." };
+    return { correct: false, reason: "Lỗi hệ thống chấm điểm, thử lại sau nhé.", errorNodeIds: [], errorEdgeIds: [] };
   }
 }
