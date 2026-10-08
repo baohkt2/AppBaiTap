@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, createContext, useContext } from "react";
 import {
   ReactFlow,
   Controls,
@@ -17,17 +17,59 @@ import {
   Position,
   ConnectionMode,
   Panel,
+  MarkerType,
+  NodeToolbar,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { motion, AnimatePresence } from "framer-motion";
 import confetti from "canvas-confetti";
 import { useStudent } from "@/app/learn/layout";
+import dagre from "dagre";
+import { Pencil, Trash2, Settings2, Plus, Undo2, Redo2, Wand2 } from "lucide-react";
 
 import FlowDiagram from "@/components/FlowDiagram";
 
-// ===== Custom Nodes for Flowchart =====
-// We use simple HTML/CSS to render the shapes so they scale and look like the FlowDiagram SVG.
+// Context for Node Actions
+const FlowActionsContext = createContext<{
+  onEditNode: (id: string) => void;
+  onDeleteNode: (id: string) => void;
+}>({ onEditNode: () => {}, onDeleteNode: () => {} });
 
+const getLayoutedElements = (nodes: Node[], edges: Edge[], direction = 'TB') => {
+  const dagreGraph = new dagre.graphlib.Graph();
+  dagreGraph.setDefaultEdgeLabel(() => ({}));
+  
+  const nodeWidth = 150;
+  const nodeHeight = 60;
+
+  dagreGraph.setGraph({ rankdir: direction, nodesep: 40, ranksep: 60 });
+
+  nodes.forEach((node) => {
+    const isDecision = node.type === 'decision';
+    dagreGraph.setNode(node.id, { width: isDecision ? 150 : nodeWidth, height: isDecision ? 150 : nodeHeight });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const newNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    return {
+      ...node,
+      position: {
+        x: nodeWithPosition.x - nodeWithPosition.width / 2,
+        y: nodeWithPosition.y - nodeWithPosition.height / 2,
+      },
+    };
+  });
+
+  return { nodes: newNodes, edges };
+};
+
+// ===== Custom Nodes for Flowchart =====
 const nodeStyleBase = {
   display: "flex",
   alignItems: "center",
@@ -49,39 +91,63 @@ const NodeHandles = () => (
   </>
 );
 
-function TerminatorNode({ data }: { data: { label?: string } }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function TerminatorNode({ id, data, selected }: { id: string, data: any, selected?: boolean }) {
+  const { onEditNode, onDeleteNode } = useContext(FlowActionsContext);
   return (
-    <div style={{ ...nodeStyleBase, borderRadius: 25, borderColor: "#7c3aed", background: "#ede9fe", color: "#5b21b6", width: 140, height: 50 }}>
-      <NodeHandles />
-      <div>{data.label || "Bắt đầu / Kết thúc"}</div>
-    </div>
-  );
-}
-
-function ProcessNode({ data }: { data: { label?: string } }) {
-  return (
-    <div style={{ ...nodeStyleBase, borderRadius: 8, borderColor: "#3b82f6", background: "#eff6ff", color: "#1e40af", width: 140, height: 50 }}>
-      <NodeHandles />
-      <div>{data.label || "Thao tác"}</div>
-    </div>
-  );
-}
-
-function DecisionNode({ data }: { data: { label?: string } }) {
-  return (
-    <div style={{ position: "relative", width: 140, height: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
-      <div style={{
-        position: "absolute",
-        width: "100px", height: "100px",
-        background: "#fef3c7",
-        border: "2px solid #f59e0b",
-        transform: "rotate(45deg)",
-      }}></div>
-      <div style={{ zIndex: 1, fontSize: 12, fontWeight: "bold", color: "#92400e", textAlign: "center", padding: 10 }}>
-        {data.label || "Điều kiện?"}
+    <>
+      <NodeToolbar isVisible={selected} position={Position.Top} className="flex gap-1 bg-white p-1 rounded-xl shadow-lg border border-gray-100 mb-2">
+        <button onClick={() => onEditNode(id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={16}/></button>
+        <button onClick={() => onDeleteNode(id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
+      </NodeToolbar>
+      <div style={{ ...nodeStyleBase, borderRadius: 25, borderColor: "#7c3aed", background: "#ede9fe", color: "#5b21b6", width: 140, height: 50 }}>
+        <NodeHandles />
+        <div>{data.label || "Bắt đầu / Kết thúc"}</div>
       </div>
-      <NodeHandles />
-    </div>
+    </>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ProcessNode({ id, data, selected }: { id: string, data: any, selected?: boolean }) {
+  const { onEditNode, onDeleteNode } = useContext(FlowActionsContext);
+  return (
+    <>
+      <NodeToolbar isVisible={selected} position={Position.Top} className="flex gap-1 bg-white p-1 rounded-xl shadow-lg border border-gray-100 mb-2">
+        <button onClick={() => onEditNode(id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={16}/></button>
+        <button onClick={() => onDeleteNode(id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
+      </NodeToolbar>
+      <div style={{ ...nodeStyleBase, borderRadius: 8, borderColor: "#3b82f6", background: "#eff6ff", color: "#1e40af", width: 140, height: 50 }}>
+        <NodeHandles />
+        <div>{data.label || "Thao tác"}</div>
+      </div>
+    </>
+  );
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function DecisionNode({ id, data, selected }: { id: string, data: any, selected?: boolean }) {
+  const { onEditNode, onDeleteNode } = useContext(FlowActionsContext);
+  return (
+    <>
+      <NodeToolbar isVisible={selected} position={Position.Top} className="flex gap-1 bg-white p-1 rounded-xl shadow-lg border border-gray-100 mb-2">
+        <button onClick={() => onEditNode(id)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={16}/></button>
+        <button onClick={() => onDeleteNode(id)} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
+      </NodeToolbar>
+      <div style={{ position: "relative", width: 140, height: 140, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{
+          position: "absolute",
+          width: "100px", height: "100px",
+          background: "#fef3c7",
+          border: "2px solid #f59e0b",
+          transform: "rotate(45deg)",
+        }}></div>
+        <div style={{ zIndex: 1, fontSize: 12, fontWeight: "bold", color: "#92400e", textAlign: "center", padding: 10 }}>
+          {data.label || "Điều kiện?"}
+        </div>
+        <NodeHandles />
+      </div>
+    </>
   );
 }
 
@@ -125,15 +191,17 @@ export default function TuDoMode({ question, questionId }: Props) {
   const [history, setHistory] = useState<{ nodes: Node[]; edges: Edge[] }[]>([{ nodes: [], edges: [] }]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
-  // Selection
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
 
   const [result, setResult] = useState<SubmitResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  
   const [editingNode, setEditingNode] = useState<Node | null>(null);
   const [editingEdge, setEditingEdge] = useState<Edge | null>(null);
   const [editVal, setEditVal] = useState("");
+
+  const [nodeMenuOpen, setNodeMenuOpen] = useState(false);
+  const [toolsMenuOpen, setToolsMenuOpen] = useState(false);
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
 
@@ -163,6 +231,16 @@ export default function TuDoMode({ question, questionId }: Props) {
       setHistoryIndex(historyIndex + 1);
     }
   };
+  
+  const onLayout = useCallback(() => {
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      nodes,
+      edges
+    );
+    setNodes([...layoutedNodes]);
+    setEdges([...layoutedEdges]);
+    saveHistory(layoutedNodes, layoutedEdges);
+  }, [nodes, edges, saveHistory]);
 
   const [failCount, setFailCount] = useState(0);
   const [showModelAnswer, setShowModelAnswer] = useState(false);
@@ -196,7 +274,17 @@ export default function TuDoMode({ question, questionId }: Props) {
   const onConnect = useCallback((connection: Connection) => {
     const sourceNode = nodes.find(n => n.id === connection.source);
     const newEdgeId = `edge_${Date.now()}`;
-    const newEdge: Edge = { ...connection, id: newEdgeId, animated: true, label: undefined };
+    const newEdge: Edge = { 
+      ...connection, 
+      id: newEdgeId, 
+      animated: true, 
+      label: undefined,
+      markerEnd: {
+        type: MarkerType.ArrowClosed,
+        width: 20,
+        height: 20,
+      }
+    };
     
     setEdges((eds) => {
       const newEdges = addEdge(newEdge, eds);
@@ -220,7 +308,7 @@ export default function TuDoMode({ question, questionId }: Props) {
     const newNode: Node = {
       id,
       type,
-      position: { x: 100, y: 100 + nodes.length * 60 },
+      position: { x: 50, y: 50 + nodes.length * 20 },
       data: { label: defaultLabel },
     };
     const newNodes = [...nodes, newNode];
@@ -238,14 +326,24 @@ export default function TuDoMode({ question, questionId }: Props) {
     setEditVal(edge.label as string ?? "");
   };
 
-  const editSelected = () => {
-    if (selectedNodeIds.length === 1) {
-      const node = nodes.find(n => n.id === selectedNodeIds[0]);
-      if (node) {
-        setEditingNode(node);
-        setEditVal(node.data.label as string);
-      }
-    } else if (selectedEdgeIds.length === 1) {
+  const onEditNode = useCallback((id: string) => {
+    const node = nodes.find(n => n.id === id);
+    if (node) {
+      setEditingNode(node);
+      setEditVal(node.data.label as string);
+    }
+  }, [nodes]);
+
+  const onDeleteNode = useCallback((id: string) => {
+    const newNodes = nodes.filter(n => n.id !== id);
+    const newEdges = edges.filter(e => e.source !== id && e.target !== id);
+    setNodes(newNodes);
+    setEdges(newEdges);
+    saveHistory(newNodes, newEdges);
+  }, [nodes, edges, saveHistory]);
+  
+  const editSelectedEdge = () => {
+    if (selectedEdgeIds.length === 1) {
       const edge = edges.find(e => e.id === selectedEdgeIds[0]);
       if (edge) {
         setEditingEdge(edge);
@@ -254,14 +352,13 @@ export default function TuDoMode({ question, questionId }: Props) {
     }
   };
 
-  const deleteSelected = () => {
-    const newNodes = nodes.filter(n => !selectedNodeIds.includes(n.id));
-    const newEdges = edges.filter(e => !selectedEdgeIds.includes(e.id) && !selectedNodeIds.includes(e.source) && !selectedNodeIds.includes(e.target));
-    setNodes(newNodes);
-    setEdges(newEdges);
-    setSelectedNodeIds([]);
-    setSelectedEdgeIds([]);
-    saveHistory(newNodes, newEdges);
+  const deleteSelectedEdge = () => {
+    if (selectedEdgeIds.length > 0) {
+      const newEdges = edges.filter(e => !selectedEdgeIds.includes(e.id));
+      setEdges(newEdges);
+      setSelectedEdgeIds([]);
+      saveHistory(nodes, newEdges);
+    }
   };
 
   const saveEdit = () => {
@@ -383,73 +480,105 @@ export default function TuDoMode({ question, questionId }: Props) {
           50% { stroke-width: 5px; }
         }
       `}</style>
-      <div className="card w-full shadow-inner border border-gray-200 overflow-hidden" style={{ height: "65vh", minHeight: 450 }} ref={reactFlowWrapper}>
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          onNodeDoubleClick={handleNodeDoubleClick}
-          onEdgeDoubleClick={handleEdgeDoubleClick}
-          onSelectionChange={({ nodes: selNodes, edges: selEdges }) => {
-            setSelectedNodeIds(selNodes.map(n => n.id));
-            setSelectedEdgeIds(selEdges.map(e => e.id));
-          }}
-          nodeTypes={nodeTypes}
-          connectionMode={ConnectionMode.Loose}
-          connectionRadius={40}
-          fitView
-          attributionPosition="bottom-right"
-        >
-          <Background color="#ccc" gap={16} />
-          <Controls />
-          
-          <Panel position="top-center" className="flex flex-wrap gap-2 justify-center bg-white/90 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-gray-100 max-w-[95vw] mt-2">
-            <button onClick={() => addNode("terminator", "Bắt đầu")} className="btn btn-sm rounded-full bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 hover:border-purple-300">
-              Bắt đầu
-            </button>
-            <button onClick={() => addNode("terminator", "Kết thúc")} className="btn btn-sm rounded-full bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100 hover:border-purple-300">
-              Kết thúc
-            </button>
-            <button onClick={() => addNode("process", "Thao tác")} className="btn btn-sm rounded-full bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 hover:border-blue-300">
-              Thao tác
-            </button>
-            <button onClick={() => addNode("decision", "Điều kiện?")} className="btn btn-sm rounded-full bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 hover:border-amber-300">
-              Điều kiện
-            </button>
-          </Panel>
+      
+      <div className="card w-full shadow-inner border border-gray-200 overflow-hidden relative" style={{ height: "65vh", minHeight: 450 }} ref={reactFlowWrapper}>
+        <FlowActionsContext.Provider value={{ onEditNode, onDeleteNode }}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onNodeDoubleClick={handleNodeDoubleClick}
+            onEdgeDoubleClick={handleEdgeDoubleClick}
+            onSelectionChange={({ edges: selEdges }) => {
+              setSelectedEdgeIds(selEdges.map(e => e.id));
+            }}
+            nodeTypes={nodeTypes}
+            connectionMode={ConnectionMode.Loose}
+            connectionRadius={40}
+            fitView
+            attributionPosition="bottom-right"
+          >
+            <Background color="#ccc" gap={16} />
+            <Controls />
+            
+            {/* Edge action floating toolbar */}
+            {selectedEdgeIds.length === 1 && (
+              <Panel position="bottom-center" className="mb-4 flex gap-1 bg-white/90 backdrop-blur-md p-1.5 rounded-xl shadow-lg border border-gray-100">
+                <button onClick={editSelectedEdge} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Pencil size={18}/></button>
+                <button onClick={deleteSelectedEdge} className="p-2 text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={18}/></button>
+              </Panel>
+            )}
 
-          <Panel position="bottom-center" className="flex flex-wrap gap-2 justify-center bg-white/90 backdrop-blur-md p-2 rounded-2xl shadow-lg border border-gray-100 max-w-[95vw] mb-8">
-            <button onClick={undo} disabled={historyIndex === 0} className="btn btn-sm btn-ghost rounded-full" title="Hoàn tác">
-              ↩️
-            </button>
-            <button onClick={redo} disabled={historyIndex === history.length - 1} className="btn btn-sm btn-ghost rounded-full" title="Làm lại">
-              ↪️
-            </button>
-            <div className="w-px bg-gray-200 mx-1"></div>
-            <button 
-              onClick={editSelected} 
-              disabled={selectedNodeIds.length + selectedEdgeIds.length !== 1} 
-              className="btn btn-sm rounded-full text-blue-600 bg-blue-50 hover:bg-blue-100 border-none disabled:bg-gray-100 disabled:text-gray-400"
-              title="Sửa mục đang chọn"
-            >
-              ✏️ Sửa
-            </button>
-            <button 
-              onClick={deleteSelected} 
-              disabled={!selectedNodeIds.length && !selectedEdgeIds.length} 
-              className="btn btn-sm rounded-full text-red-600 bg-red-50 hover:bg-red-100 border-none disabled:bg-gray-100 disabled:text-gray-400"
-              title="Xóa mục đang chọn"
-            >
-              🗑 Xóa
-            </button>
-          </Panel>
-          
-        </ReactFlow>
+            {/* Top Left Menu for Adding Nodes */}
+            <Panel position="top-left" className="m-2 flex flex-row items-center gap-2">
+              <button 
+                onClick={() => setNodeMenuOpen(!nodeMenuOpen)} 
+                className="p-3 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 text-gray-700 transition-colors z-10"
+              >
+                <Plus size={24} className={`transition-transform duration-300 ${nodeMenuOpen ? 'rotate-45' : ''}`} />
+              </button>
+              <AnimatePresence>
+                {nodeMenuOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, x: -20, scale: 0.8 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: -20, scale: 0.8 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center gap-2 bg-white/90 backdrop-blur-md px-3 py-2 rounded-full shadow-md border border-gray-100 origin-left"
+                  >
+                    <button onClick={() => { addNode("terminator", "Bắt đầu"); setNodeMenuOpen(false); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Bắt đầu / Kết thúc">
+                       <div className="w-8 h-4 rounded-full border-2 border-purple-500 bg-purple-100" />
+                    </button>
+                    <button onClick={() => { addNode("process", "Thao tác"); setNodeMenuOpen(false); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Thao tác">
+                       <div className="w-8 h-5 rounded border-2 border-blue-500 bg-blue-100" />
+                    </button>
+                    <button onClick={() => { addNode("decision", "Điều kiện?"); setNodeMenuOpen(false); }} className="p-2 hover:bg-gray-100 rounded-full transition-colors" title="Điều kiện">
+                       <div className="w-5 h-5 border-2 border-amber-500 bg-amber-100 rotate-45 mx-1" />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Panel>
+
+            {/* Bottom Left Menu for Tools */}
+            <Panel position="bottom-left" className="m-2 mb-12 flex flex-col-reverse items-center gap-2">
+              <button 
+                onClick={() => setToolsMenuOpen(!toolsMenuOpen)} 
+                className="p-3 bg-white hover:bg-gray-50 rounded-full shadow-md border border-gray-200 text-gray-700 transition-colors z-10"
+              >
+                <Settings2 size={24} className={`transition-transform duration-300 ${toolsMenuOpen ? 'rotate-90' : ''}`} />
+              </button>
+              <AnimatePresence>
+                {toolsMenuOpen && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20, scale: 0.8 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 20, scale: 0.8 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex flex-col gap-2 bg-white/90 backdrop-blur-md p-2 rounded-full shadow-md border border-gray-100 origin-bottom"
+                  >
+                    <button onClick={undo} disabled={historyIndex === 0} className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-30 text-gray-700 transition-colors" title="Hoàn tác">
+                      <Undo2 size={20} />
+                    </button>
+                    <button onClick={redo} disabled={historyIndex === history.length - 1} className="p-2 hover:bg-gray-100 rounded-full disabled:opacity-30 text-gray-700 transition-colors" title="Làm lại">
+                      <Redo2 size={20} />
+                    </button>
+                    <div className="h-px bg-gray-200 w-full"></div>
+                    <button onClick={() => { onLayout(); setToolsMenuOpen(false); }} className="p-2 hover:bg-blue-50 rounded-full text-blue-600 transition-colors" title="Tự động sắp xếp">
+                      <Wand2 size={20} />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </Panel>
+            
+          </ReactFlow>
+        </FlowActionsContext.Provider>
       </div>
       <div className="text-center text-xs text-gray-500 mb-2 mt-1">
-        💡 Kéo thả từ các điểm tròn trên khối để nối mũi tên. Chạm đúp để sửa chữ.
+        💡 Kéo thả từ các điểm tròn trên khối để nối mũi tên. Chạm đúp hoặc bấm icon ✏️ để sửa nội dung.
       </div>
 
       {/* Edit Modal */}
