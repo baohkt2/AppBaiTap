@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStudentId } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase";
-import { questionSchema, sapXepAnswerSchema, dienKhuyetAnswerSchema, tuDoAnswerSchema } from "@/lib/schema";
+import { questionSchema, sapXepAnswerSchema, dienKhuyetAnswerSchema, tuDoAnswerSchema, examSubmissionSchema } from "@/lib/schema";
 import { gradeSapXep, gradeDienKhuyet } from "@/lib/grading";
 import { checkAndRecordJudgeCall, judgeDienKhuyet, judgeTuDo } from "@/lib/judge";
+import { callGemini } from "@/lib/gemini";
 import { validateFlowchart } from "@/lib/flowchart/validate";
 import { POINTS } from "@/lib/config";
+import { loadExamById } from "@/lib/exams";
 
 export const maxDuration = 60;
 
@@ -40,6 +42,146 @@ export async function POST(
 
   const { id: questionId } = await params;
   const db = supabaseAdmin();
+  const body = await req.json();
+
+  const loadedExam = await loadExamById(db, questionId);
+  if (loadedExam) {
+    const exam = loadedExam.exam;
+    const submissionParsed = examSubmissionSchema.safeParse({ examId: questionId, answers: body.answers });
+    if (!submissionParsed.success) {
+      return NextResponse.json({ error: "Dữ liệu nộp bài không hợp lệ" }, { status: 400 });
+    }
+
+    const studentAnswers = submissionParsed.data.answers;
+    let earnedScore = 0;
+    const gradedQuestions: any[] = [];
+    const essays: any[] = [];
+
+    for (const question of exam.questions) {
+      const studentAnswer = studentAnswers[question.id] || "";
+      if (question.type === "mcq") {
+        const isCorrect = studentAnswer === question.correctAnswer;
+        const score = isCorrect ? question.scoreWeight : 0;
+        earnedScore += score;
+        gradedQuestions.push({
+          id: question.id,
+          type: "mcq",
+          correct: isCorrect,
+          score,
+          correctAnswer: question.correctAnswer,
+          explanation: question.explanation,
+        });
+      } else if (!studentAnswer.trim()) {
+        gradedQuestions.push({
+          id: question.id,
+          type: "essay",
+          score: 0,
+          feedback: "Bạn chưa làm câu này.",
+          explanation: question.explanation,
+        });
+      } else {
+        essays.push({
+          id: question.id,
+          question: question.content,
+          answer: studentAnswer,
+          correctAnswer: question.correctAnswer,
+          maxScore: question.scoreWeight,
+        });
+      }
+    }
+
+    if (essays.length > 0) {
+      try {
+        const systemPrompt = `Bạn là giáo viên chấm thi tự luận.
+Dưới đây là mảng các câu trả lời tự luận của học sinh.
+Chấm điểm theo câu trả lời mẫu / từ khóa.
+Trả JSON có dạng {"results":[{"id":"q1","score":0.5,"feedback":"..."}]}.`;
+        const userPrompt = JSON.stringify(essays, null, 2);
+
+        const aiGrading = await callGemini<any>({
+          systemPrompt,
+          userPrompt,
+          temperature: 0.2,
+          responseSchema: {
+            type: "object",
+            properties: {
+              results: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    score: { type: "number" },
+                    feedback: { type: "string" },
+                  },
+                  required: ["id", "score", "feedback"],
+                },
+              },
+            },
+            required: ["results"],
+          },
+        });
+
+        for (const result of aiGrading.results ?? []) {
+          const question = exam.questions.find((item) => item.id === result.id);
+          const finalScore = Math.max(0, Math.min(result.score, question?.scoreWeight ?? 0));
+          earnedScore += finalScore;
+          gradedQuestions.push({
+            id: result.id,
+            type: "essay",
+            score: finalScore,
+            feedback: result.feedback,
+            explanation: question?.explanation,
+          });
+        }
+      } catch (err) {
+        console.error("AI Grading failed:", err);
+        for (const essay of essays) {
+          gradedQuestions.push({
+            id: essay.id,
+            type: "essay",
+            score: 0,
+            feedback: "Không thể chấm tự động lúc này. Vui lòng xem đáp án mẫu.",
+            explanation: exam.questions.find((item) => item.id === essay.id)?.explanation,
+          });
+        }
+      }
+    }
+
+    const rawMax = exam.questions.reduce((sum, question) => sum + question.scoreWeight, 0);
+    const scale = exam.maxScore / (rawMax || 1);
+    const totalScore = earnedScore * scale;
+
+    const { data: studentData } = await (db.from("students") as any)
+      .select("name")
+      .eq("id", studentId)
+      .single();
+
+    await (db.from("exam_submissions") as any).upsert(
+      {
+        exam_id: questionId,
+        student_id: studentId,
+        student_name: studentData?.name ?? null,
+        answers: studentAnswers,
+        total_score: totalScore,
+        status: "graded",
+      },
+      { onConflict: "exam_id,student_id" }
+    );
+
+    await (db.from("attempts") as any).upsert(
+      { student_id: studentId, question_id: questionId, correct: totalScore >= exam.maxScore, points: totalScore },
+      { onConflict: "student_id,question_id" }
+    );
+
+    return NextResponse.json({
+      result: {
+        totalScore,
+        maxScore: exam.maxScore,
+        gradedQuestions,
+      },
+    });
+  }
 
   // Fetch question
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -52,12 +194,14 @@ export async function POST(
   if (qErr || !qRow) {
     return NextResponse.json({ error: "Không tìm thấy câu hỏi" }, { status: 404 });
   }
+  const parsedPractice = questionSchema.safeParse(qRow.data);
 
-  const parsed = questionSchema.safeParse(qRow.data);
-  if (!parsed.success) {
+  if (!parsedPractice.success) {
     return NextResponse.json({ error: "Dữ liệu câu hỏi bị lỗi" }, { status: 500 });
   }
-  const question = parsed.data;
+
+  // Fallback to Practice logic
+  const question = parsedPractice.data;
 
   // Check if already completed
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -66,8 +210,6 @@ export async function POST(
     .eq("student_id", studentId)
     .eq("question_id", questionId)
     .single();
-
-  const body = await req.json();
 
   let correct = false;
   let wrongNodeIds: string[] = [];

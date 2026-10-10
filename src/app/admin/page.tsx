@@ -19,6 +19,8 @@ import {
   Trash2,
   Undo2,
   Hash,
+  FileQuestion,
+  FileText
 } from "lucide-react";
 
 export default function AdminPage() {
@@ -68,7 +70,7 @@ export default function AdminPage() {
 
   if (!authed) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-linear-to-br from-indigo-50 via-white to-purple-50">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -112,7 +114,7 @@ export default function AdminPage() {
 }
 
 function AdminDashboard() {
-  const [tab, setTab] = useState<"generate" | "pending" | "approved">("generate");
+  const [tab, setTab] = useState<"generate" | "pending" | "approved" | "exam">("generate");
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
@@ -134,11 +136,12 @@ function AdminDashboard() {
             { id: "generate", label: "Sinh câu hỏi", icon: Bot },
             { id: "pending", label: "Chờ duyệt", icon: ClipboardList },
             { id: "approved", label: "Đã duyệt", icon: CheckCircle2 },
+            { id: "exam", label: "Đề Thi (AI)", icon: FileQuestion },
           ].map((item) => (
-            <button
+              <button
               key={item.id}
               onClick={() => setTab(item.id as any)}
-              className={`relative flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-medium text-sm transition-colors flex-shrink-0 ${
+              className={`relative flex items-center justify-center gap-2 px-4 sm:px-6 py-2.5 rounded-xl font-medium text-sm transition-colors shrink-0 ${
                 tab === item.id ? "text-indigo-700" : "text-gray-500 hover:text-gray-800 hover:bg-gray-50/50"
               }`}
             >
@@ -166,6 +169,7 @@ function AdminDashboard() {
             {tab === "generate" && <GenerateTab />}
             {tab === "pending" && <QuestionListTab status="pending" />}
             {tab === "approved" && <QuestionListTab status="approved" />}
+            {tab === "exam" && <ExamTab />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -212,7 +216,7 @@ function GenerateTab() {
   };
 
   return (
-    <div className="bg-white rounded-[2rem] p-6 sm:p-8 shadow-sm border border-gray-100 space-y-8">
+    <div className="bg-white rounded-4xl p-6 sm:p-8 shadow-sm border border-gray-100 space-y-8">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Modes */}
         <div className="space-y-4">
@@ -455,7 +459,7 @@ function QuestionListTab({ status }: { status: string }) {
            ))}
         </div>
         <div className="lg:col-span-2">
-           <div className="animate-pulse bg-white/60 h-[600px] rounded-3xl border border-gray-100" />
+          <div className="animate-pulse bg-white/60 h-150 rounded-3xl border border-gray-100" />
         </div>
       </div>
     );
@@ -479,7 +483,7 @@ function QuestionListTab({ status }: { status: string }) {
     <div className="space-y-6">
       {actionError && (
         <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-700 shadow-sm">
-          <X className="w-5 h-5 flex-shrink-0" />
+          <X className="w-5 h-5 shrink-0" />
           <p className="text-sm font-semibold">{actionError}</p>
         </div>
       )}
@@ -518,7 +522,7 @@ function QuestionListTab({ status }: { status: string }) {
         </div>
 
         {/* RIGHT PANE: Details */}
-        <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 lg:sticky lg:top-24 flex flex-col min-h-[600px]">
+        <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 lg:sticky lg:top-24 flex flex-col min-h-150">
           {selectedQuestion ? (
             <div className="space-y-6 flex-1 flex flex-col">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
@@ -578,7 +582,7 @@ function QuestionListTab({ status }: { status: string }) {
 
               {/* Flowchart preview */}
               {selectedQuestion.data?.nodes && selectedQuestion.data?.edges && (
-                <div className="bg-gradient-to-b from-gray-50/80 to-white rounded-2xl p-4 border border-gray-100 overflow-hidden flex-1 min-h-[400px] relative">
+                <div className="bg-linear-to-b from-gray-50/80 to-white rounded-2xl p-4 border border-gray-100 overflow-hidden flex-1 min-h-100 relative">
                   <FlowDiagram nodes={selectedQuestion.data.nodes} edges={selectedQuestion.data.edges} blanks={selectedQuestion.data.blanks ?? []} />
                 </div>
               )}
@@ -622,7 +626,7 @@ function QuestionListTab({ status }: { status: string }) {
               </div>
               <div className="p-4 sm:p-6 flex-1 overflow-hidden flex flex-col">
                 <textarea
-                  className="w-full h-full min-h-[400px] sm:min-h-[500px] p-5 bg-[#0F172A] text-emerald-400 font-mono text-[13px] sm:text-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none leading-relaxed shadow-inner"
+                  className="w-full h-full min-h-100 sm:min-h-125 p-5 bg-[#0F172A] text-emerald-400 font-mono text-[13px] sm:text-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/50 resize-none leading-relaxed shadow-inner"
                   value={editJson}
                   onChange={(e) => setEditJson(e.target.value)}
                   spellCheck={false}
@@ -646,6 +650,328 @@ function QuestionListTab({ status }: { status: string }) {
           </div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function ExamTab() {
+  const [sourceMode, setSourceMode] = useState<"upload" | "text">("upload");
+  const [documentText, setDocumentText] = useState("");
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [count, setCount] = useState(10);
+  const [mcqRatio, setMcqRatio] = useState(80);
+  const [diffNhanBiet, setDiffNhanBiet] = useState(4);
+  const [diffThongHieu, setDiffThongHieu] = useState(4);
+  const [diffVanDung, setDiffVanDung] = useState(2);
+  const [loading, setLoading] = useState(false);
+  const [loadingExams, setLoadingExams] = useState(true);
+  const [exams, setExams] = useState<any[]>([]);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadExams() {
+      setLoadingExams(true);
+      try {
+        const res = await fetch("/api/admin/exams");
+        const data = await res.json();
+        if (!cancelled) {
+          setExams(data.exams ?? []);
+        }
+      } catch {
+        if (!cancelled) {
+          setExams([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingExams(false);
+      }
+    }
+
+    loadExams();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function reloadExams() {
+    const res = await fetch("/api/admin/exams");
+    const data = await res.json();
+    setExams(data.exams ?? []);
+  }
+
+  async function handleExamAction(id: string, action: "publish" | "unpublish" | "delete") {
+    const res = await fetch("/api/admin/exams", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      setError(data.error ?? "Lỗi thao tác đề thi");
+      return;
+    }
+
+    await reloadExams();
+  }
+
+  function buildFormData() {
+    const formData = new FormData();
+    formData.append("count", String(count));
+    formData.append("mcqRatio", String(mcqRatio / 100));
+    formData.append("nhan_biet", String(diffNhanBiet));
+    formData.append("thong_hieu", String(diffThongHieu));
+    formData.append("van_dung", String(diffVanDung));
+
+    if (sourceMode === "upload" && sourceFile) {
+      formData.append("file", sourceFile);
+    } else {
+      formData.append("documentText", documentText);
+    }
+
+    return formData;
+  }
+
+  async function handleGenerate() {
+    if (sourceMode === "upload" && !sourceFile) {
+      alert("Vui lòng chọn file tài liệu nguồn!");
+      return;
+    }
+    if (sourceMode === "text" && !documentText.trim()) {
+      alert("Vui lòng dán nội dung tài liệu nguồn!");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setResult(null);
+    try {
+      const body = buildFormData();
+      const res = await fetch("/api/admin/exams/generate", {
+        method: "POST",
+        body,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error + (data.details ? ": " + JSON.stringify(data.details) : ""));
+      }
+      setResult(data);
+      await reloadExams();
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-4xl p-6 sm:p-8 shadow-sm border border-gray-100 space-y-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* Left Col: Configs */}
+        <div className="space-y-6">
+          <div className="flex items-center gap-2 text-gray-800 font-bold text-lg mb-4">
+            <Settings className="w-5 h-5 text-indigo-500" />
+            <h2>Cấu hình Đề thi</h2>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">Tổng số câu hỏi</label>
+              <input type="number" min={1} max={50} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-semibold text-gray-700">% Trắc nghiệm</label>
+              <div className="flex items-center gap-2">
+                <input type="range" min={0} max={100} step={10} value={mcqRatio} onChange={(e) => setMcqRatio(Number(e.target.value))} className="flex-1" />
+                <span className="text-sm font-bold w-12 text-right">{mcqRatio}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <label className="text-sm font-semibold text-gray-700">Phân bố độ khó (số câu)</label>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
+                <div className="text-xs font-semibold text-emerald-700 mb-1">Nhận biết</div>
+                <input type="number" min={0} value={diffNhanBiet} onChange={e => setDiffNhanBiet(Number(e.target.value))} className="w-full bg-white px-2 py-1.5 rounded border border-emerald-200 outline-none text-center" />
+              </div>
+              <div className="bg-amber-50 p-3 rounded-xl border border-amber-100">
+                <div className="text-xs font-semibold text-amber-700 mb-1">Thông hiểu</div>
+                <input type="number" min={0} value={diffThongHieu} onChange={e => setDiffThongHieu(Number(e.target.value))} className="w-full bg-white px-2 py-1.5 rounded border border-amber-200 outline-none text-center" />
+              </div>
+              <div className="bg-rose-50 p-3 rounded-xl border border-rose-100">
+                <div className="text-xs font-semibold text-rose-700 mb-1">Vận dụng</div>
+                <input type="number" min={0} value={diffVanDung} onChange={e => setDiffVanDung(Number(e.target.value))} className="w-full bg-white px-2 py-1.5 rounded border border-rose-200 outline-none text-center" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Col: Document Source */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-gray-800 font-bold text-lg mb-4">
+            <FileText className="w-5 h-5 text-blue-500" />
+            <h2>Tài liệu Nguồn</h2>
+          </div>
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl w-fit">
+            <button
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${sourceMode === "upload" ? "bg-white text-indigo-700 shadow-sm" : "text-gray-500"}`}
+              onClick={() => setSourceMode("upload")}
+            >
+              Upload file
+            </button>
+            <button
+              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${sourceMode === "text" ? "bg-white text-indigo-700 shadow-sm" : "text-gray-500"}`}
+              onClick={() => setSourceMode("text")}
+            >
+              Dán text
+            </button>
+          </div>
+
+          {sourceMode === "upload" ? (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-500">Tải lên PDF, Word hoặc file văn bản để AI đọc và sinh đề thi tự động.</p>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.md"
+                onChange={(e) => setSourceFile(e.target.files?.[0] ?? null)}
+                className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-xl file:border-0 file:bg-indigo-50 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
+              />
+              {sourceFile && (
+                <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 text-sm text-indigo-800">
+                  File đã chọn: <span className="font-semibold">{sourceFile.name}</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-500">Copy và dán nội dung bài học, sách giáo khoa hoặc tài liệu tham khảo vào đây để AI đọc và sinh đề thi tự động.</p>
+              <textarea
+                className="w-full h-48 p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 outline-none resize-none leading-relaxed text-sm"
+                placeholder="Dán nội dung tài liệu vào đây..."
+                value={documentText}
+                onChange={(e) => setDocumentText(e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={handleGenerate}
+        disabled={loading}
+        className="w-full relative overflow-hidden bg-linear-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 text-white font-medium py-4 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2 text-base"
+      >
+        {loading ? (
+          <>
+             <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+             Đang dùng AI phân tích tài liệu và tạo đề thi...
+          </>
+        ) : (
+          <><Bot className="w-5 h-5" /> Khởi tạo Đề thi Tự động</>
+        )}
+      </button>
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-red-700 text-sm font-semibold">
+          Lỗi: {error}
+        </div>
+      )}
+
+      {result && (
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="p-6 bg-emerald-50 border border-emerald-100 rounded-2xl space-y-4">
+          <div className="flex items-center gap-2 text-emerald-800 font-bold text-lg">
+             <CheckCircle2 className="w-6 h-6" /> Tạo đề thi thành công!
+          </div>
+          <p className="text-emerald-700 text-sm">Đề thi đã được lưu vào cơ sở dữ liệu với ID: <strong>{result.examId}</strong></p>
+          <div className="bg-white p-4 rounded-xl border border-emerald-100 shadow-sm">
+             <h3 className="font-bold text-gray-800 text-lg mb-2">{result.data.title}</h3>
+             <p className="text-sm text-gray-600 mb-4">{result.data.description}</p>
+             <div className="flex gap-4 text-sm">
+                <span className="px-3 py-1 bg-gray-100 rounded-lg">⏱ {result.data.timeLimit ?? "Không giới hạn"} phút</span>
+                <span className="px-3 py-1 bg-gray-100 rounded-lg">🏆 {result.data.maxScore} điểm</span>
+                <span className="px-3 py-1 bg-gray-100 rounded-lg">📝 {result.data.questions.length} câu hỏi</span>
+             </div>
+             <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                Đề đang ở trạng thái nháp. Hãy kiểm tra danh sách bên dưới và bấm Xuất bản khi sẵn sàng.
+             </div>
+          </div>
+          <p className="text-xs text-emerald-600/80">Bạn có thể xem chi tiết đề thi ở màn hình Quản lý Đề.</p>
+        </motion.div>
+      )}
+
+      <div className="pt-2 border-t border-gray-100 space-y-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="font-bold text-gray-800 text-lg">Danh sách đề thi</h3>
+            <p className="text-sm text-gray-500">Quản lý trạng thái phát hành của các đề đã tạo.</p>
+          </div>
+          <button
+            onClick={reloadExams}
+            className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors"
+          >
+            Làm mới
+          </button>
+        </div>
+
+        {loadingExams ? (
+          <div className="space-y-3">
+            {[1, 2].map((i) => <div key={i} className="h-24 rounded-2xl bg-gray-50 animate-pulse" />)}
+          </div>
+        ) : exams.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50/60 p-6 text-center text-sm text-gray-500">
+            Chưa có đề thi nào.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {exams.map((exam) => (
+              <div key={exam.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-md ${exam.status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                      {exam.status === "published" ? "Đã xuất bản" : "Nháp"}
+                    </span>
+                    <span className="px-2 py-1 text-xs font-semibold rounded-md bg-gray-100 text-gray-600">{exam.questionCount} câu</span>
+                    <span className="px-2 py-1 text-xs font-semibold rounded-md bg-indigo-50 text-indigo-700">{exam.timeLimit ? `${exam.timeLimit} phút` : "Không giới hạn"}</span>
+                  </div>
+                  <h4 className="font-bold text-gray-800 truncate">{exam.title}</h4>
+                  <p className="text-sm text-gray-500 line-clamp-2 mt-1">{exam.description}</p>
+                  <p className="text-xs text-gray-400 mt-2 font-mono break-all">{exam.id}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                  {exam.status === "published" ? (
+                    <button
+                      onClick={() => handleExamAction(exam.id, "unpublish")}
+                      className="px-4 py-2 rounded-xl bg-amber-50 text-amber-700 font-semibold hover:bg-amber-100 transition-colors flex items-center gap-2"
+                    >
+                      <Undo2 className="w-4 h-4" /> Gỡ xuất bản
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleExamAction(exam.id, "publish")}
+                      className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4" /> Xuất bản
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleExamAction(exam.id, "delete")}
+                    className="px-4 py-2 rounded-xl bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition-colors flex items-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4" /> Xóa
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

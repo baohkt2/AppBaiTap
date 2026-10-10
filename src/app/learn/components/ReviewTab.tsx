@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import Leaderboard from "./Leaderboard";
@@ -143,24 +143,91 @@ function AlgorithmSection() {
 }
 
 function TheorySection() {
+  const [exams, setExams] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/questions?mode=exam");
+        const data = await res.json();
+        if (!cancelled) {
+          setExams(data.questions ?? []);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2].map(i => <div key={i} className="h-32 bg-white/60 animate-pulse rounded-2xl" />)}
+      </div>
+    );
+  }
+
+  if (exams.length === 0) {
+    return (
+      <div className="card p-8 text-center">
+        <span className="text-6xl block mb-4">📝</span>
+        <h2 className="text-lg font-bold mb-2 text-gray-800">Chưa có Đề thi nào!</h2>
+        <p className="text-sm text-gray-500">Giáo viên hiện chưa tạo đề thi hoặc bài tập lý thuyết nào.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="card p-8 text-center">
-      <motion.div
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 200 }}
-      >
-        <span className="text-6xl block mb-4">🚧</span>
-      </motion.div>
-      <h2
-        className="text-lg font-bold mb-2"
-        style={{ color: "var(--text-primary)" }}
-      >
-        Sắp ra mắt!
-      </h2>
-      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-        Phần lý thuyết đang được xây dựng. Quay lại sau nhé! 🤖
-      </p>
+    <div className="grid gap-4">
+      {exams.map((exam, i) => (
+        <motion.div
+          key={exam.id}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.1 }}
+        >
+          <Link href={`/learn/exams/${exam.id}`} className="block">
+            <div className="card card-interactive p-5 bg-white border border-gray-100 hover:border-indigo-200">
+              <div className="flex items-start gap-4">
+                <div className="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-2xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-md">
+                  📝
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-bold text-base text-gray-800 line-clamp-1">{exam.title}</h3>
+                    {exam.completed && <span className="badge bg-emerald-100 text-emerald-800">Đã làm</span>}
+                  </div>
+                  <p className="text-sm text-gray-500 mb-3 line-clamp-1">{exam.description}</p>
+                  
+                  <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
+                    <span className="px-2 py-1 bg-gray-100 text-gray-600 rounded-lg">
+                       ⏱ {exam.timeLimit ? `${exam.timeLimit} phút` : "Không giới hạn"}
+                    </span>
+                    <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg">
+                       📋 {exam.questionCount} câu hỏi
+                    </span>
+                    <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-lg">
+                       🏆 {exam.maxScore} điểm
+                    </span>
+                  </div>
+                </div>
+                <div className="shrink-0 self-center text-gray-400">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </Link>
+        </motion.div>
+      ))}
     </div>
   );
 }

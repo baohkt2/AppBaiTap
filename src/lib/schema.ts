@@ -77,3 +77,37 @@ export const tuDoAnswerSchema = z.object({
 export type SapXepAnswer = z.infer<typeof sapXepAnswerSchema>;
 export type DienKhuyetAnswer = z.infer<typeof dienKhuyetAnswerSchema>;
 export type TuDoAnswer = z.infer<typeof tuDoAnswerSchema>;
+
+/** ==================== EXAM SYSTEM SCHEMAS ==================== */
+
+export const examQuestionSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["mcq", "essay"]),
+  difficulty: z.enum(["nhan_biet", "thong_hieu", "van_dung"]),
+  content: z.string().min(1),
+  options: z.array(z.string()).optional(), // Only for mcq
+  correctAnswer: z.string().min(1), // Index or text for mcq, rubrics/keywords for essay
+  explanation: z.string().optional(),
+  scoreWeight: z.number().default(1),
+});
+
+export const examStatusSchema = z.enum(["draft", "published"]);
+
+export const examSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  timeLimit: z.number().nullable(), // in minutes, null means unlimited
+  maxScore: z.number().default(10),
+  questions: z.array(examQuestionSchema).min(1),
+});
+
+export type ExamQuestion = z.infer<typeof examQuestionSchema>;
+export type Exam = z.infer<typeof examSchema>;
+export type ExamStatus = z.infer<typeof examStatusSchema>;
+
+export const examSubmissionSchema = z.object({
+  examId: z.string().min(1),
+  answers: z.record(z.string(), z.string()), // questionId -> answer
+});
+
+export type ExamSubmission = z.infer<typeof examSubmissionSchema>;

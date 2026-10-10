@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStudentId } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase";
+import { listExamSummaries } from "@/lib/exams";
 
 export async function GET(req: NextRequest) {
   const studentId = await getStudentId();
@@ -13,6 +14,25 @@ export async function GET(req: NextRequest) {
   const structureFilter = searchParams.get("structure");
 
   const db = supabaseAdmin();
+
+  if (mode === "exam") {
+    const exams = await listExamSummaries(db);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: submissions } = await (db.from("exam_submissions") as any)
+      .select("exam_id")
+      .eq("student_id", studentId);
+
+    const completedIds = new Set((submissions ?? []).map((row: any) => row.exam_id));
+
+    return NextResponse.json({
+      questions: exams.map((exam) => ({
+        ...exam,
+        completed: completedIds.has(exam.id),
+        mode: "exam",
+        structure: null,
+      })),
+    });
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (db.from("questions") as any)
@@ -46,13 +66,26 @@ export async function GET(req: NextRequest) {
 
   // Return list with minimal info (no answers)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const list = (questions ?? []).map((q: any) => ({
-    id: q.id,
-    mode: q.mode,
-    structure: q.type,
-    title: q.data?.title ?? "",
-    completed: completedIds.has(q.id),
-  }));
+  const list = (questions ?? []).map((q: any) => {
+    const base = {
+      id: q.id,
+      mode: q.mode,
+      structure: q.type,
+      title: q.data?.title ?? "",
+      completed: completedIds.has(q.id),
+    };
+
+    if (q.mode === "exam") {
+      return {
+        ...base,
+        description: q.data?.description ?? "",
+        timeLimit: q.data?.timeLimit ?? null,
+        maxScore: q.data?.maxScore ?? 10,
+        questionCount: q.data?.questions?.length ?? 0,
+      };
+    }
+    return base;
+  });
 
   return NextResponse.json({ questions: list });
 }

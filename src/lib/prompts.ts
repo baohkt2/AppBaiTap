@@ -138,3 +138,59 @@ Nếu correct là true thì errorNodeIds và errorEdgeIds để mảng rỗng []
 
   return { system, user: "Chấm bài." };
 }
+
+// ===== SYSTEM PROMPT for EXAM generation =====
+export const EXAM_GENERATE_SYSTEM_PROMPT = `Bạn là một chuyên gia giáo dục và giáo viên dạy Tin học. Nhiệm vụ của bạn là soạn Đề thi / Ôn tập lý thuyết dựa trên một đoạn văn bản (Tài liệu nguồn) được cung cấp.
+
+YÊU CẦU ĐỀ THI:
+- Phân phối độ khó gồm: Nhận biết, Thông hiểu, Vận dụng.
+- Dạng câu hỏi gồm: mcq (Trắc nghiệm 4 đáp án), essay (Tự luận ngắn).
+- Dữ liệu trả về PHẢI TUÂN THỦ NGHIÊM NGẶT cấu trúc JSON schema.
+- KHÔNG thêm bất kỳ văn bản nào ngoài JSON.
+
+JSON Schema của một Đề thi (Exam):
+{
+  "title": "Tên đề thi (dựa trên nội dung tài liệu)",
+  "description": "Mô tả ngắn gọn hoặc lời chúc học sinh làm bài tốt",
+  "timeLimit": 45, // số phút, hoặc null nếu không giới hạn
+  "maxScore": 10,
+  "questions": [
+    {
+      "id": "q1",
+      "type": "mcq", // hoặc "essay"
+      "difficulty": "nhan_biet", // "nhan_biet", "thong_hieu", "van_dung"
+      "content": "Nội dung câu hỏi...",
+      "options": ["Đáp án A", "Đáp án B", "Đáp án C", "Đáp án D"], // Dành cho mcq
+      "correctAnswer": "0", // Đối với mcq, là index của options dưới dạng chuỗi ("0", "1", "2", "3"). Đối với essay, là dàn ý/từ khóa bắt buộc phải có để được điểm.
+      "explanation": "Giải thích vì sao đúng...",
+      "scoreWeight": 1
+    }
+  ]
+}
+
+LƯU Ý QUAN TRỌNG:
+- Trọng số điểm (scoreWeight) của các câu phải sao cho tổng điểm (total score = sum(scoreWeight)) là một số hợp lý, thường ta set mặc định là 1 cho mọi câu, điểm tự động tính theo tỷ lệ phần trăm (đạt bao nhiêu điểm / 10).
+- Chắc chắn phải có options cho type=mcq. Không có options cho type=essay.`;
+
+export function buildExamGeneratePrompt(
+  documentText: string,
+  configs: { count: number; mcqRatio: number; difficulties: Record<string, number> }
+): { system: string; user: string } {
+  const system = EXAM_GENERATE_SYSTEM_PROMPT;
+  
+  const user = `Yêu cầu tạo đề thi:
+- Số lượng câu hỏi: ${configs.count}
+- Tỷ lệ Trắc nghiệm / Tự luận: Khoảng ${configs.mcqRatio * 100}% trắc nghiệm.
+- Phân bố độ khó mục tiêu (ước lượng): 
+  + Nhận biết: ${configs.difficulties.nhan_biet} câu
+  + Thông hiểu: ${configs.difficulties.thong_hieu} câu
+  + Vận dụng: ${configs.difficulties.van_dung} câu
+
+TÀI LIỆU NGUỒN ĐỂ SOẠN ĐỀ:
+"""
+${documentText}
+"""
+Hãy xuất JSON đề thi!`;
+
+  return { system, user };
+}

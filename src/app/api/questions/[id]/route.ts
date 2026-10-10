@@ -3,6 +3,7 @@ import { getStudentId } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase";
 import { maskQuestion } from "@/lib/masking";
 import { questionSchema } from "@/lib/schema";
+import { loadExamById } from "@/lib/exams";
 
 export async function GET(
   _req: NextRequest,
@@ -16,21 +17,38 @@ export async function GET(
   const { id } = await params;
   const db = supabaseAdmin();
 
+  const loadedExam = await loadExamById(db, id);
+  if (loadedExam) {
+    const maskedExam = {
+      ...loadedExam.exam,
+      questions: loadedExam.exam.questions.map((question) => ({
+        id: question.id,
+        type: question.type,
+        difficulty: question.difficulty,
+        content: question.content,
+        options: question.options,
+        scoreWeight: question.scoreWeight,
+      })),
+    };
+
+    return NextResponse.json({ exam: maskedExam });
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (db.from("questions") as any)
-    .select("id, data, status")
+    .select("id, mode, data, status")
     .eq("id", id)
     .eq("status", "approved")
     .single();
 
   if (error || !data) {
-    return NextResponse.json({ error: "Không tìm thấy câu hỏi" }, { status: 404 });
+    return NextResponse.json({ error: "Không tìm thấy câu hỏi/đề thi" }, { status: 404 });
   }
 
-  // Parse question from JSONB
+  // Handle Practice Questions
   const parsed = questionSchema.safeParse(data.data);
   if (!parsed.success) {
-    console.error("Invalid question data in DB:", id);
+    console.error("Invalid question data in DB:", id, parsed.error);
     return NextResponse.json({ error: "Dữ liệu câu hỏi bị lỗi" }, { status: 500 });
   }
 
