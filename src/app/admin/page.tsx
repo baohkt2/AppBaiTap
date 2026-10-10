@@ -836,17 +836,44 @@ function SubmissionTab() {
   const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
   const [submissionDetail, setSubmissionDetail] = useState<any>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(25);
+  const [filters, setFilters] = useState({
+    kind: "all",
+    className: "",
+    q: "",
+    mode: "",
+    status: "",
+    correct: "",
+    from: "",
+    to: "",
+  });
+  const [total, setTotal] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch("/api/admin/submissions");
+        const params = new URLSearchParams({
+          kind: filters.kind,
+          class: filters.className,
+          q: filters.q,
+          mode: filters.mode,
+          status: filters.status,
+          correct: filters.correct,
+          from: filters.from,
+          to: filters.to,
+          page: String(page),
+          pageSize: String(pageSize),
+        });
+
+        const res = await fetch(`/api/admin/submissions?${params.toString()}`);
         const data = await res.json();
         if (!cancelled) {
           const nextSubmissions = data.submissions ?? [];
           setSubmissions(nextSubmissions);
+          setTotal(Number(data.total ?? nextSubmissions.length));
           if (nextSubmissions.length > 0 && !nextSubmissions.some((submission: any) => submission.id === selectedSubmissionId)) {
             setSelectedSubmissionId(nextSubmissions[0].id);
           }
@@ -863,7 +890,7 @@ function SubmissionTab() {
     }
     load();
     return () => { cancelled = true; };
-  }, [selectedSubmissionId]);
+  }, [filters, page, pageSize, selectedSubmissionId]);
 
   useEffect(() => {
     if (!selectedSubmissionId) {
@@ -890,7 +917,7 @@ function SubmissionTab() {
     return () => { cancelled = true; };
   }, [selectedSubmissionId]);
 
-  const selectedSubmission = submissions.find((submission) => submission.id === selectedSubmissionId) ?? null;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
     <div className="space-y-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
@@ -899,12 +926,38 @@ function SubmissionTab() {
         <p className="text-sm text-gray-500">Xem các bài nộp của học sinh và chi tiết từng bài.</p>
       </div>
 
+      <div className="grid gap-3 lg:grid-cols-6">
+        <select value={filters.kind} onChange={(e) => { setFilters((prev) => ({ ...prev, kind: e.target.value })); setPage(1); }} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+          <option value="all">Tất cả</option>
+          <option value="algo">Luyện tập</option>
+          <option value="exam">Đề thi</option>
+        </select>
+        <input value={filters.className} onChange={(e) => { setFilters((prev) => ({ ...prev, className: e.target.value })); setPage(1); }} placeholder="Lớp" className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm" />
+        <input value={filters.q} onChange={(e) => { setFilters((prev) => ({ ...prev, q: e.target.value })); setPage(1); }} placeholder="Tìm tên / đề" className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm" />
+        <select value={filters.mode} onChange={(e) => { setFilters((prev) => ({ ...prev, mode: e.target.value })); setPage(1); }} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+          <option value="">Chế độ</option>
+          <option value="sap_xep">sap_xep</option>
+          <option value="dien_khuyet">dien_khuyet</option>
+          <option value="tu_do">tu_do</option>
+        </select>
+        <select value={filters.correct} onChange={(e) => { setFilters((prev) => ({ ...prev, correct: e.target.value })); setPage(1); }} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+          <option value="">Kết quả</option>
+          <option value="true">Đúng</option>
+          <option value="false">Sai</option>
+        </select>
+        <select value={filters.status} onChange={(e) => { setFilters((prev) => ({ ...prev, status: e.target.value })); setPage(1); }} className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm">
+          <option value="">Trạng thái</option>
+          <option value="submitted">submitted</option>
+          <option value="graded">graded</option>
+        </select>
+      </div>
+
       {loading ? (
         <div className="grid gap-3 md:grid-cols-3">
           {[1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-gray-50" />)}
         </div>
       ) : submissions.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">Chưa có bài làm nào.</div>
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">Không có bài làm khớp bộ lọc.</div>
       ) : (
         <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
           <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1 custom-scrollbar">
@@ -916,10 +969,14 @@ function SubmissionTab() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="font-bold text-gray-800 line-clamp-2">{submission.examTitle}</p>
+                    <p className="font-bold text-gray-800 line-clamp-2">{submission.examTitle || submission.title}</p>
                     <p className="text-sm text-gray-500">{submission.studentName || submission.studentId}</p>
                   </div>
-                  <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">{Math.round(submission.totalScore * 100) / 100}</span>
+                  <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">{Math.round(Number(submission.totalScore ?? 0) * 100) / 100}</span>
+                </div>
+                <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500">
+                  <span>{submission.kind === "algo" ? "🧩 Luyện tập" : "📝 Đề thi"}</span>
+                  <span>{submission.status || (submission.correct ? "Đúng" : "Sai")}</span>
                 </div>
                 <p className="mt-3 text-xs text-gray-400 font-mono break-all">{submission.id}</p>
               </button>
@@ -985,6 +1042,17 @@ function SubmissionTab() {
             ) : (
               <div className="flex min-h-72 items-center justify-center text-gray-400">Chọn một bài làm để xem chi tiết</div>
             )}
+          </div>
+        </div>
+      )}
+
+      {submissions.length > 0 && (
+        <div className="flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
+          <p className="text-sm text-gray-500">Tổng: {total} bài làm</p>
+          <div className="flex items-center gap-2">
+            <button disabled={page <= 1} onClick={() => setPage((prev) => Math.max(1, prev - 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm disabled:opacity-50">Trước</button>
+            <span className="text-sm text-gray-600">{page} / {pages}</span>
+            <button disabled={page >= pages} onClick={() => setPage((prev) => Math.min(pages, prev + 1))} className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm disabled:opacity-50">Sau</button>
           </div>
         </div>
       )}
