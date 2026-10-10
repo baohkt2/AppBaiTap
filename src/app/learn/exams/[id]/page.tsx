@@ -111,6 +111,8 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
     return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
 
+  const canRevealAnswers = Boolean(result?.showAnswersAfterSubmit && exam.showAnswersAfterSubmit);
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-24">
       {/* Sticky Header */}
@@ -138,7 +140,7 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
 
         {/* Result Summary */}
         {result && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-gradient-to-br from-indigo-600 to-purple-700 p-8 rounded-3xl text-white shadow-xl text-center space-y-4">
+          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-linear-to-br from-indigo-600 to-purple-700 p-8 rounded-3xl text-white shadow-xl text-center space-y-4">
             <h2 className="text-2xl font-bold">Kết Quả Làm Bài</h2>
             <div className="text-7xl font-black drop-shadow-md">
               {Math.round((result.totalScore / result.maxScore) * 100) / 10} <span className="text-3xl text-indigo-200">/ 10</span>
@@ -155,7 +157,7 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
             const graded = result?.gradedQuestions?.find((g: any) => g.id === q.id);
 
             return (
-              <div key={q.id} className="bg-white p-6 sm:p-8 rounded-[2rem] shadow-sm border border-gray-100 space-y-6">
+              <div key={q.id} className="bg-white p-6 sm:p-8 rounded-4xl shadow-sm border border-gray-100 space-y-6">
                 <div className="flex gap-4">
                   <div className="shrink-0 w-10 h-10 rounded-full bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center border border-indigo-200">
                     {i + 1}
@@ -189,7 +191,7 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
                         }`;
                         
                         // Override styles if graded
-                        if (graded && q.type === "mcq") {
+                        if (graded && q.type === "mcq" && canRevealAnswers) {
                            const isCorrectOption = String(optIdx) === graded.correctAnswer;
                            if (isCorrectOption) {
                               optionClass = "p-4 rounded-xl border-2 flex items-start gap-3 border-emerald-500 bg-emerald-50 text-emerald-900";
@@ -204,11 +206,11 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
                           <div key={optIdx} className={optionClass} onClick={() => !result && handleOptionChange(q.id, String(optIdx))}>
                             <div className={`w-6 h-6 shrink-0 rounded-full border-2 flex items-center justify-center mt-0.5 ${
                                checked && !graded ? "border-indigo-500 bg-indigo-500" : 
-                               graded && String(optIdx) === graded.correctAnswer ? "border-emerald-500 bg-emerald-500" :
-                               graded && checked ? "border-red-500 bg-red-500" :
+                               graded && canRevealAnswers && String(optIdx) === graded.correctAnswer ? "border-emerald-500 bg-emerald-500" :
+                               graded && canRevealAnswers && checked ? "border-red-500 bg-red-500" :
                                "border-gray-300"
                             }`}>
-                               {(checked || (graded && String(optIdx) === graded.correctAnswer)) && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
+                               {(checked || (graded && canRevealAnswers && String(optIdx) === graded.correctAnswer)) && <div className="w-2.5 h-2.5 bg-white rounded-full" />}
                             </div>
                             <span className="font-medium text-[15px]">{opt}</span>
                           </div>
@@ -230,7 +232,7 @@ export default function ExamPage({ params }: { params: Promise<{ id: string }> }
                         </div>
                       )}
                       
-                      {graded.explanation && (
+                       {canRevealAnswers && graded.explanation && (
                          <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
                             <h4 className="font-bold text-blue-900 mb-1">Giải thích:</h4>
                             <p className="text-sm text-blue-800">{graded.explanation}</p>

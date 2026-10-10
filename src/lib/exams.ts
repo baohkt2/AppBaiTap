@@ -13,6 +13,7 @@ type ExamRow = {
   description: string | null;
   time_limit: number | null;
   max_score: number | null;
+  show_answers_after_submit?: boolean | null;
   status: "draft" | "published";
   created_at: string | null;
 };
@@ -80,6 +81,7 @@ function normalizeExam(row: ExamRow, questionRows: ExamQuestionRow[]): LoadedExa
     description: row.description ?? undefined,
     timeLimit: row.time_limit ?? null,
     maxScore: Number(row.max_score ?? 10),
+    showAnswersAfterSubmit: Boolean(row.show_answers_after_submit ?? false),
     questions: questionRows
       .slice()
       .sort((a, b) => Number(a.order_index ?? 0) - Number(b.order_index ?? 0))
@@ -121,6 +123,7 @@ export async function saveExamVersion(db: DbClient, examId: string, exam: Exam, 
     description: exam.description ?? null,
     time_limit: exam.timeLimit,
     max_score: exam.maxScore,
+    show_answers_after_submit: exam.showAnswersAfterSubmit ?? false,
     status,
   });
 
@@ -148,6 +151,7 @@ export async function updateExamVersion(db: DbClient, examId: string, exam: Exam
       description: exam.description ?? null,
       time_limit: exam.timeLimit,
       max_score: exam.maxScore,
+      show_answers_after_submit: exam.showAnswersAfterSubmit ?? false,
       ...(status ? { status } : {}),
     })
     .eq("id", examId);
@@ -228,7 +232,7 @@ export async function loadExamById(db: DbClient, examId: string, includeDraft = 
 
 export async function listExamSummaries(db: DbClient, includeDraft = false): Promise<ExamSummary[]> {
   const { data: examRowsRaw, error: examError } = await (db.from("exams") as any)
-    .select("id, title, description, status, time_limit, max_score, created_at")
+    .select("id, title, description, status, time_limit, max_score, show_answers_after_submit, created_at")
     .order("created_at", { ascending: false });
 
   const examRows = (examRowsRaw ?? []) as ExamRow[];
@@ -253,6 +257,7 @@ export async function listExamSummaries(db: DbClient, includeDraft = false): Pro
       status: row.status,
       timeLimit: row.time_limit ?? null,
       maxScore: Number(row.max_score ?? 10),
+      showAnswersAfterSubmit: Boolean(row.show_answers_after_submit ?? false),
       questionCount: countMap.get(row.id) ?? 0,
       createdAt: row.created_at ?? null,
     }));

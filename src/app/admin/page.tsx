@@ -24,7 +24,9 @@ import {
   Pencil,
   Save,
   RotateCcw,
-  Plus
+  Plus,
+  Users,
+  FileBarChart2
 } from "lucide-react";
 
 type ExamDraftQuestion = {
@@ -43,6 +45,7 @@ type ExamDraft = {
   description?: string;
   timeLimit: number | null;
   maxScore: number;
+  showAnswersAfterSubmit: boolean;
   questions: ExamDraftQuestion[];
 };
 
@@ -52,6 +55,7 @@ function cloneExamToDraft(exam: ExamDetail["exam"]): ExamDraft {
     description: exam.description ?? "",
     timeLimit: exam.timeLimit,
     maxScore: exam.maxScore,
+    showAnswersAfterSubmit: exam.showAnswersAfterSubmit,
     questions: exam.questions.map((question) => ({
       ...question,
       options: question.options ? [...question.options] : undefined,
@@ -66,6 +70,7 @@ function normalizeDraftExam(draft: ExamDraft): ExamDraft {
     description: draft.description?.trim() || undefined,
     timeLimit: draft.timeLimit,
     maxScore: draft.maxScore,
+    showAnswersAfterSubmit: draft.showAnswersAfterSubmit,
     questions: draft.questions.map((question, index) => ({
       ...question,
       id: question.id || `draft-q-${index + 1}`,
@@ -168,7 +173,7 @@ export default function AdminPage() {
 }
 
 function AdminDashboard() {
-  const [tab, setTab] = useState<"generate" | "pending" | "approved" | "exam">("generate");
+  const [tab, setTab] = useState<"generate" | "pending" | "approved" | "exam" | "students" | "submissions">("generate");
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
@@ -191,6 +196,8 @@ function AdminDashboard() {
             { id: "pending", label: "Chờ duyệt", icon: ClipboardList },
             { id: "approved", label: "Đã duyệt", icon: CheckCircle2 },
             { id: "exam", label: "Đề Thi (AI)", icon: FileQuestion },
+            { id: "students", label: "Học sinh", icon: Users },
+            { id: "submissions", label: "Bài làm", icon: FileBarChart2 },
           ].map((item) => (
               <button
               key={item.id}
@@ -224,6 +231,8 @@ function AdminDashboard() {
             {tab === "pending" && <QuestionListTab status="pending" />}
             {tab === "approved" && <QuestionListTab status="approved" />}
             {tab === "exam" && <ExamTab />}
+            {tab === "students" && <StudentTab />}
+            {tab === "submissions" && <SubmissionTab />}
           </motion.div>
         </AnimatePresence>
       </main>
@@ -704,6 +713,281 @@ function QuestionListTab({ status }: { status: string }) {
           </div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function StudentTab() {
+  const [query, setQuery] = useState("");
+  const [students, setStudents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch(`/api/admin/students?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        if (!cancelled) {
+          const nextStudents = data.students ?? [];
+          setStudents(nextStudents);
+          if (nextStudents.length > 0 && !nextStudents.some((student: any) => student.id === selectedStudentId)) {
+            setSelectedStudentId(nextStudents[0].id);
+          }
+          if (nextStudents.length === 0) {
+            setSelectedStudentId(null);
+          }
+        }
+      } catch {
+        if (!cancelled) setStudents([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [query, selectedStudentId]);
+
+  const selectedStudent = students.find((student) => student.id === selectedStudentId) ?? null;
+
+  return (
+    <div className="space-y-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">Quản lý học sinh</h2>
+          <p className="text-sm text-gray-500">Danh sách học sinh, điểm tích lũy và số bài đã làm.</p>
+        </div>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Tìm theo tên, lớp hoặc mã học sinh"
+          className="w-full md:w-96 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+        />
+      </div>
+
+      {loading ? (
+        <div className="grid gap-3 md:grid-cols-3">
+          {[1, 2, 3].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-gray-50" />)}
+        </div>
+      ) : students.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">Chưa có học sinh nào.</div>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1 custom-scrollbar">
+            {students.map((student) => (
+              <button
+                key={student.id}
+                onClick={() => setSelectedStudentId(student.id)}
+                className={`w-full rounded-2xl border p-4 text-left transition-all ${selectedStudentId === student.id ? "border-indigo-500 bg-indigo-50/50" : "border-gray-100 bg-white hover:border-indigo-200"}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-gray-800">{student.name}</p>
+                    <p className="text-sm text-gray-500">{student.class}</p>
+                  </div>
+                  <span className="rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">{student.examCount} đề</span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold text-gray-600">
+                  <span className="rounded-md bg-emerald-50 px-2 py-1 text-emerald-700">{student.totalPoints} điểm</span>
+                  <span className="rounded-md bg-indigo-50 px-2 py-1 text-indigo-700">{student.practiceCount} bài luyện</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
+            {selectedStudent ? (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800">{selectedStudent.name}</h3>
+                  <p className="text-sm text-gray-500">{selectedStudent.class}</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tổng điểm</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-800">{selectedStudent.totalPoints}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Bài luyện</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-800">{selectedStudent.practiceCount}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Bài thi</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-800">{selectedStudent.examCount}</p>
+                  </div>
+                </div>
+                <p className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600">Mã học sinh: <span className="font-mono font-semibold text-gray-800">{selectedStudent.id}</span></p>
+              </div>
+            ) : (
+              <div className="flex min-h-72 items-center justify-center text-gray-400">Chọn một học sinh để xem chi tiết</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubmissionTab() {
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedSubmissionId, setSelectedSubmissionId] = useState<string | null>(null);
+  const [submissionDetail, setSubmissionDetail] = useState<any>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/admin/submissions");
+        const data = await res.json();
+        if (!cancelled) {
+          const nextSubmissions = data.submissions ?? [];
+          setSubmissions(nextSubmissions);
+          if (nextSubmissions.length > 0 && !nextSubmissions.some((submission: any) => submission.id === selectedSubmissionId)) {
+            setSelectedSubmissionId(nextSubmissions[0].id);
+          }
+          if (nextSubmissions.length === 0) {
+            setSelectedSubmissionId(null);
+            setSubmissionDetail(null);
+          }
+        }
+      } catch {
+        if (!cancelled) setSubmissions([]);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => { cancelled = true; };
+  }, [selectedSubmissionId]);
+
+  useEffect(() => {
+    if (!selectedSubmissionId) {
+      setSubmissionDetail(null);
+      return;
+    }
+
+    let cancelled = false;
+    async function loadDetail() {
+      setDetailLoading(true);
+      try {
+        const res = await fetch(`/api/admin/submissions?id=${selectedSubmissionId}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setSubmissionDetail(data);
+        }
+      } catch {
+        if (!cancelled) setSubmissionDetail(null);
+      } finally {
+        if (!cancelled) setDetailLoading(false);
+      }
+    }
+    loadDetail();
+    return () => { cancelled = true; };
+  }, [selectedSubmissionId]);
+
+  const selectedSubmission = submissions.find((submission) => submission.id === selectedSubmissionId) ?? null;
+
+  return (
+    <div className="space-y-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div>
+        <h2 className="text-xl font-bold text-gray-800">Quản lý bài làm</h2>
+        <p className="text-sm text-gray-500">Xem các bài nộp của học sinh và chi tiết từng bài.</p>
+      </div>
+
+      {loading ? (
+        <div className="grid gap-3 md:grid-cols-3">
+          {[1, 2, 3].map((i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-gray-50" />)}
+        </div>
+      ) : submissions.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-8 text-center text-sm text-gray-500">Chưa có bài làm nào.</div>
+      ) : (
+        <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1 custom-scrollbar">
+            {submissions.map((submission) => (
+              <button
+                key={submission.id}
+                onClick={() => setSelectedSubmissionId(submission.id)}
+                className={`w-full rounded-2xl border p-4 text-left transition-all ${selectedSubmissionId === submission.id ? "border-indigo-500 bg-indigo-50/50" : "border-gray-100 bg-white hover:border-indigo-200"}`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-bold text-gray-800 line-clamp-2">{submission.examTitle}</p>
+                    <p className="text-sm text-gray-500">{submission.studentName || submission.studentId}</p>
+                  </div>
+                  <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">{Math.round(submission.totalScore * 100) / 100}</span>
+                </div>
+                <p className="mt-3 text-xs text-gray-400 font-mono break-all">{submission.id}</p>
+              </button>
+            ))}
+          </div>
+
+          <div className="rounded-3xl border border-gray-100 bg-gray-50 p-5">
+            {detailLoading ? (
+              <div className="space-y-3 animate-pulse">
+                <div className="h-8 w-2/3 rounded bg-gray-200" />
+                <div className="h-4 w-1/2 rounded bg-gray-200" />
+                <div className="h-40 rounded-2xl bg-gray-200" />
+              </div>
+            ) : submissionDetail?.submission && submissionDetail?.exam ? (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800">{submissionDetail.exam.exam.title}</h3>
+                  <p className="text-sm text-gray-500">{submissionDetail.submission.student_name || submissionDetail.submission.student_id}</p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-3">
+                  <div className="rounded-2xl bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Điểm</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-800">{Math.round(Number(submissionDetail.submission.total_score ?? 0) * 100) / 100}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Trạng thái</p>
+                    <p className="mt-1 text-lg font-bold text-gray-800">{submissionDetail.submission.status}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Số câu</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-800">{submissionDetail.exam.exam.questions.length}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {submissionDetail.exam.exam.questions.map((question: any, index: number) => {
+                    const answer = submissionDetail.submission.answers?.[question.id] ?? "";
+                    return (
+                      <div key={question.id} className="rounded-2xl border border-gray-200 bg-white p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Câu {index + 1}</p>
+                            <p className="mt-1 font-semibold text-gray-800 whitespace-pre-wrap">{question.content}</p>
+                          </div>
+                          <span className="rounded-md bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-600">{question.type}</span>
+                        </div>
+                        <div className="mt-3 rounded-xl bg-gray-50 p-3 text-sm text-gray-700">
+                          <span className="font-semibold text-gray-500">Bài làm:</span> {typeof answer === "string" ? answer : JSON.stringify(answer)}
+                        </div>
+                        <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-900">
+                          <span className="font-semibold">Đáp án mẫu:</span> {question.type === "mcq" ? `${question.correctAnswer}` : question.correctAnswer}
+                        </div>
+                        {question.explanation && (
+                          <div className="mt-3 rounded-xl bg-blue-50 p-3 text-sm text-blue-900">
+                            <span className="font-semibold">Giải thích:</span> {question.explanation}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="flex min-h-72 items-center justify-center text-gray-400">Chọn một bài làm để xem chi tiết</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1258,6 +1542,10 @@ function ExamTab() {
                           <p className="mt-1 text-2xl font-bold text-gray-800">{selectedExam.exam.questions.length}</p>
                         </div>
                       </div>
+                      <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Hiển thị đáp án sau nộp</p>
+                        <p className="mt-1 text-sm font-semibold text-gray-800">{selectedExam.exam.showAnswersAfterSubmit ? "Có" : "Không"}</p>
+                      </div>
 
                       <div className="space-y-3 max-h-130 overflow-y-auto pr-1 custom-scrollbar">
                         {selectedExam.exam.questions.map((question, index) => (
@@ -1347,6 +1635,15 @@ function ExamTab() {
                             className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
                           />
                         </div>
+                        <label className="md:col-span-2 flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700">
+                          <input
+                            type="checkbox"
+                            checked={editExam.showAnswersAfterSubmit}
+                            onChange={(e) => updateExamField("showAnswersAfterSubmit", e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          Chỉ hiển thị đáp án và lời giải sau khi học sinh nộp bài
+                        </label>
                       </div>
 
                       <div className="flex items-center justify-between gap-3 pt-2">
@@ -1533,6 +1830,7 @@ type ExamSummary = {
   status: "draft" | "published";
   timeLimit: number | null;
   maxScore: number;
+  showAnswersAfterSubmit: boolean;
   questionCount: number;
   createdAt: string | null;
 };
@@ -1546,6 +1844,7 @@ type ExamDetail = {
     description?: string;
     timeLimit: number | null;
     maxScore: number;
+    showAnswersAfterSubmit: boolean;
     questions: Array<{
       id: string;
       type: "mcq" | "essay";

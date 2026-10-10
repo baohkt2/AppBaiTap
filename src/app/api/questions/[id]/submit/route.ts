@@ -47,6 +47,7 @@ export async function POST(
   const loadedExam = await loadExamById(db, questionId);
   if (loadedExam) {
     const exam = loadedExam.exam;
+    const revealAnswers = Boolean(exam.showAnswersAfterSubmit);
     const submissionParsed = examSubmissionSchema.safeParse({ examId: questionId, answers: body.answers });
     if (!submissionParsed.success) {
       return NextResponse.json({ error: "Dữ liệu nộp bài không hợp lệ" }, { status: 400 });
@@ -56,6 +57,18 @@ export async function POST(
     let earnedScore = 0;
     const gradedQuestions: any[] = [];
     const essays: any[] = [];
+
+    function normalizeEssayFeedback(answer: string, feedback: string) {
+      if (!answer.trim()) {
+        return "Bạn chưa làm câu này.";
+      }
+
+      if (/không trả lời|chưa trả lời/i.test(feedback)) {
+        return "Câu trả lời chưa khớp đáp án mẫu.";
+      }
+
+      return feedback;
+    }
 
     for (const question of exam.questions) {
       const studentAnswer = studentAnswers[question.id] || "";
@@ -68,8 +81,7 @@ export async function POST(
           type: "mcq",
           correct: isCorrect,
           score,
-          correctAnswer: question.correctAnswer,
-          explanation: question.explanation,
+          ...(revealAnswers ? { correctAnswer: question.correctAnswer, explanation: question.explanation } : {}),
         });
       } else if (!studentAnswer.trim()) {
         gradedQuestions.push({
@@ -77,7 +89,7 @@ export async function POST(
           type: "essay",
           score: 0,
           feedback: "Bạn chưa làm câu này.",
-          explanation: question.explanation,
+          ...(revealAnswers ? { explanation: question.explanation } : {}),
         });
       } else {
         essays.push({
@@ -124,14 +136,15 @@ Trả JSON có dạng {"results":[{"id":"q1","score":0.5,"feedback":"..."}]}.`;
 
         for (const result of aiGrading.results ?? []) {
           const question = exam.questions.find((item) => item.id === result.id);
+          const essayAnswer = essays.find((item) => item.id === result.id)?.answer ?? "";
           const finalScore = Math.max(0, Math.min(result.score, question?.scoreWeight ?? 0));
           earnedScore += finalScore;
           gradedQuestions.push({
             id: result.id,
             type: "essay",
             score: finalScore,
-            feedback: result.feedback,
-            explanation: question?.explanation,
+            feedback: normalizeEssayFeedback(String(essayAnswer), result.feedback),
+            ...(revealAnswers ? { explanation: question?.explanation } : {}),
           });
         }
       } catch (err) {
@@ -142,7 +155,7 @@ Trả JSON có dạng {"results":[{"id":"q1","score":0.5,"feedback":"..."}]}.`;
             type: "essay",
             score: 0,
             feedback: "Không thể chấm tự động lúc này. Vui lòng xem đáp án mẫu.",
-            explanation: exam.questions.find((item) => item.id === essay.id)?.explanation,
+            ...(revealAnswers ? { explanation: exam.questions.find((item) => item.id === essay.id)?.explanation } : {}),
           });
         }
       }
@@ -178,6 +191,7 @@ Trả JSON có dạng {"results":[{"id":"q1","score":0.5,"feedback":"..."}]}.`;
       result: {
         totalScore,
         maxScore: exam.maxScore,
+        showAnswersAfterSubmit: revealAnswers,
         gradedQuestions,
       },
     });

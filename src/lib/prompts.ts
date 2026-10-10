@@ -154,6 +154,7 @@ JSON Schema của một Đề thi (Exam):
   "description": "Mô tả ngắn gọn hoặc lời chúc học sinh làm bài tốt",
   "timeLimit": 45, // số phút, hoặc null nếu không giới hạn
   "maxScore": 10,
+  "showAnswersAfterSubmit": false,
   "questions": [
     {
       "id": "q1",
@@ -170,7 +171,8 @@ JSON Schema của một Đề thi (Exam):
 
 LƯU Ý QUAN TRỌNG:
 - Trọng số điểm (scoreWeight) của các câu phải sao cho tổng điểm (total score = sum(scoreWeight)) là một số hợp lý, thường ta set mặc định là 1 cho mọi câu, điểm tự động tính theo tỷ lệ phần trăm (đạt bao nhiêu điểm / 10).
-- Chắc chắn phải có options cho type=mcq. Không có options cho type=essay.`;
+- Chắc chắn phải có options cho type=mcq. Không có options cho type=essay.
+- showAnswersAfterSubmit là tùy chọn của đề thi, mặc định false.`;
 
 export function buildExamGeneratePrompt(
   documentText: string,

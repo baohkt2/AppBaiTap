@@ -48,6 +48,7 @@ create table exams (
   description text,
   time_limit int,
   max_score numeric not null default 10,
+  show_answers_after_submit boolean not null default false,
   status text not null default 'draft' check (status in ('draft', 'published')),
   created_at timestamptz default now()
 );

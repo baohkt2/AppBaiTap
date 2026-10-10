@@ -98,6 +98,7 @@ export const examSchema = z.object({
   description: z.string().optional(),
   timeLimit: z.number().nullable(), // in minutes, null means unlimited
   maxScore: z.number().default(10),
+  showAnswersAfterSubmit: z.boolean().default(false),
   questions: z.array(examQuestionSchema).min(1),
 });
 
