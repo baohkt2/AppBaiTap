@@ -327,6 +327,25 @@ Trả JSON có dạng {"results":[{"id":"q1","score":0.5,"feedback":"..."}]}.`;
     message = message || "Gần đúng rồi, em thử lại nhé 💪";
   }
 
+  try {
+    const submissionsTable = db.from("submissions") as unknown as {
+      insert: (payload: Record<string, unknown>) => Promise<unknown>;
+    };
+
+    await submissionsTable.insert({
+      student_id: studentId,
+      question_id: questionId,
+      mode: question.mode,
+      answer: body.answer ?? body.answers ?? {},
+      correct,
+      points: pointsAwarded,
+      wrong_node_ids: wrongNodeIds,
+      judge_reason: message || null,
+    });
+  } catch (error) {
+    console.warn("[submissions] failed to log practice attempt:", error);
+  }
+
   // Get updated total points
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: pointsData } = await (db.from("attempts") as any)

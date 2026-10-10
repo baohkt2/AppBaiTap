@@ -31,6 +31,26 @@ export async function GET(
       })),
     };
 
+    try {
+      const startTable = db.from("exam_starts") as unknown as {
+        upsert: (
+          payload: Record<string, string>,
+          options?: { onConflict?: string }
+        ) => Promise<unknown>;
+      };
+
+      await startTable.upsert(
+        {
+          exam_id: id,
+          student_id: studentId,
+          started_at: new Date().toISOString(),
+        },
+        { onConflict: "exam_id,student_id" }
+      );
+    } catch (error) {
+      console.warn("[exam-starts] failed to record start time:", error);
+    }
+
     return NextResponse.json({ exam: maskedExam });
   }
 
