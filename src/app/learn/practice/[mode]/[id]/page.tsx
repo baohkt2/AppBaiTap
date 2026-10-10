@@ -75,26 +75,24 @@ export default function QuestionPage() {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-3 relative z-50">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => router.push(`/learn/practice/${mode}`)}
-            onTouchEnd={(e) => { e.preventDefault(); router.push(`/learn/practice/${mode}`); }}
-            className="p-3 rounded-lg hover:bg-black/5 transition-colors shrink-0 cursor-pointer"
+        <div className="flex items-center gap-1 relative z-[99999]">
+          <a
+            href={`/learn/practice/${mode}`}
+            className="p-3 rounded-lg hover:bg-black/5 transition-colors shrink-0 cursor-pointer block"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-          </button>
-          <button
-            onClick={() => router.push(`/learn`)}
-            onTouchEnd={(e) => { e.preventDefault(); router.push(`/learn`); }}
-            className="p-3 rounded-lg hover:bg-black/5 transition-colors shrink-0 cursor-pointer"
+          </a>
+          <a
+            href={`/learn`}
+            className="p-3 rounded-lg hover:bg-black/5 transition-colors shrink-0 cursor-pointer block"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
-          </button>
+          </a>
         </div>
         <div className="min-w-0">
           <h1 className="text-base font-bold truncate">{question.title}</h1>
