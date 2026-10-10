@@ -66,7 +66,43 @@ export async function POST(req: NextRequest) {
         const raw = await callGemini<any>({
           systemPrompt: system + retryHint,
           userPrompt: user,
-          temperature: 0.4,
+          temperature: 0.7,
+          responseSchema: {
+            type: "object",
+            properties: {
+              title: { type: "string" },
+              scenario: { type: "string" },
+              nodes: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    shape: { type: "string", enum: ["terminator", "process", "decision"] },
+                    text: { type: "string" },
+                    accepted: { type: "array", items: { type: "string" } }
+                  },
+                  required: ["id", "shape", "text"]
+                }
+              },
+              edges: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    from: { type: "string" },
+                    to: { type: "string" },
+                    label: { type: "string" }
+                  },
+                  required: ["from", "to"]
+                }
+              },
+              blanks: { type: "array", items: { type: "string" } },
+              distractors: { type: "array", items: { type: "string" } },
+              explanation: { type: "string" }
+            },
+            required: ["title", "scenario", "nodes", "edges", "blanks", "distractors", "explanation"]
+          }
         });
 
         // Assign a generated ID

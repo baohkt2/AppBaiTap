@@ -24,10 +24,8 @@ THỨ TỰ PHẢI BỊ RÀNG BUỘC LOGIC: không để hai bước có thể ho
 Không tạo hai nút có cùng nội dung.
 
 THEO MODE:
-- sap_xep: blanks = id của MỌI nút process và decision; distractors = 1–2 thẻ nhiễu nghe hợp lý
-  nhưng không thuộc tình huống.
-- dien_khuyet: chọn 2–4 nút làm blanks; với mỗi nút blank cho "accepted" 2–4 cách viết đúng ngắn
-  (gồm cả text gốc).
+- sap_xep: blanks = mảng chứa id của TẤT CẢ nút process và decision; distractors = 1–2 thẻ nhiễu nghe hợp lý nhưng không thuộc tình huống.
+- dien_khuyet: chọn 2–4 nút làm blanks. RẤT QUAN TRỌNG: Với mỗi nút (node) có id nằm trong blanks, BẮT BUỘC phải thêm mảng "accepted" bên trong đối tượng node đó, chứa 2-4 chuỗi ngắn (các cách viết đúng, bao gồm cả text gốc).
 - tu_do: blanks = [], distractors = []. "scenario" mô tả đủ để học sinh tự vẽ và nêu rõ cần cấu trúc nào.
   nodes/edges là sơ đồ mẫu đúng.
 "scenario" là đề bài 1–3 câu thân thiện. "explanation" 1–2 câu giải thích vì sao sơ đồ đúng.
