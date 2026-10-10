@@ -96,22 +96,12 @@ function normalizeExam(row: ExamRow, questionRows: ExamQuestionRow[]): LoadedExa
 
 export async function saveExamDraft(db: DbClient, exam: Exam) {
   const examId = `exam-${randomUUID()}`;
+  return saveExamVersion(db, examId, exam, "draft");
+}
 
-  const { error: examError } = await (db.from("exams") as any).insert({
-    id: examId,
-    title: exam.title,
-    description: exam.description ?? null,
-    time_limit: exam.timeLimit,
-    max_score: exam.maxScore,
-    status: "draft",
-  });
-
-  if (examError) {
-    throw new Error(examError.message);
-  }
-
-  const questionRows = exam.questions.map((question, index) => ({
-    id: question.id,
+function buildQuestionRows(examId: string, exam: Exam) {
+  return exam.questions.map((question, index) => ({
+    id: `${examId}-q${index + 1}`,
     exam_id: examId,
     type: question.type,
     difficulty: question.difficulty,
@@ -122,11 +112,59 @@ export async function saveExamDraft(db: DbClient, exam: Exam) {
     score_weight: question.scoreWeight,
     order_index: index,
   }));
+}
+
+export async function saveExamVersion(db: DbClient, examId: string, exam: Exam, status: "draft" | "published") {
+  const { error: examError } = await (db.from("exams") as any).upsert({
+    id: examId,
+    title: exam.title,
+    description: exam.description ?? null,
+    time_limit: exam.timeLimit,
+    max_score: exam.maxScore,
+    status,
+  });
+
+  if (examError) {
+    throw new Error(examError.message);
+  }
+
+  const questionRows = buildQuestionRows(examId, exam);
+
+  await (db.from("exam_questions") as any).delete().eq("exam_id", examId);
 
   const { error: questionsError } = await (db.from("exam_questions") as any).insert(questionRows);
   if (questionsError) {
     await (db.from("exams") as any).delete().eq("id", examId);
     throw new Error(questionsError.message);
+  }
+
+  return examId;
+}
+
+export async function updateExamVersion(db: DbClient, examId: string, exam: Exam, status?: "draft" | "published") {
+  const { error: examError } = await (db.from("exams") as any)
+    .update({
+      title: exam.title,
+      description: exam.description ?? null,
+      time_limit: exam.timeLimit,
+      max_score: exam.maxScore,
+      ...(status ? { status } : {}),
+    })
+    .eq("id", examId);
+
+  if (examError) {
+    throw new Error(examError.message);
+  }
+
+  const questionRows = buildQuestionRows(examId, exam);
+  const { error: deleteError } = await (db.from("exam_questions") as any).delete().eq("exam_id", examId);
+  if (deleteError) {
+    throw new Error(deleteError.message);
+  }
+
+  const { error: insertError } = await (db.from("exam_questions") as any).insert(questionRows);
+  if (insertError) {
+    throw new Error(insertError.message);
   }
 
   return examId;

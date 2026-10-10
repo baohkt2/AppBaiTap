@@ -20,8 +20,62 @@ import {
   Undo2,
   Hash,
   FileQuestion,
-  FileText
+  FileText,
+  Pencil,
+  Save,
+  RotateCcw,
+  Plus
 } from "lucide-react";
+
+type ExamDraftQuestion = {
+  id: string;
+  type: "mcq" | "essay";
+  difficulty: "nhan_biet" | "thong_hieu" | "van_dung";
+  content: string;
+  options?: string[];
+  correctAnswer: string;
+  explanation?: string;
+  scoreWeight: number;
+};
+
+type ExamDraft = {
+  title: string;
+  description?: string;
+  timeLimit: number | null;
+  maxScore: number;
+  questions: ExamDraftQuestion[];
+};
+
+function cloneExamToDraft(exam: ExamDetail["exam"]): ExamDraft {
+  return {
+    title: exam.title,
+    description: exam.description ?? "",
+    timeLimit: exam.timeLimit,
+    maxScore: exam.maxScore,
+    questions: exam.questions.map((question) => ({
+      ...question,
+      options: question.options ? [...question.options] : undefined,
+      explanation: question.explanation ?? "",
+    })),
+  };
+}
+
+function normalizeDraftExam(draft: ExamDraft): ExamDraft {
+  return {
+    title: draft.title.trim(),
+    description: draft.description?.trim() || undefined,
+    timeLimit: draft.timeLimit,
+    maxScore: draft.maxScore,
+    questions: draft.questions.map((question, index) => ({
+      ...question,
+      id: question.id || `draft-q-${index + 1}`,
+      content: question.content.trim(),
+      options: question.type === "mcq" ? (question.options ?? []).map((option) => option.trim()).filter(Boolean) : undefined,
+      correctAnswer: question.correctAnswer.trim(),
+      explanation: question.explanation?.trim() || undefined,
+    })),
+  };
+}
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -668,8 +722,11 @@ function ExamTab() {
   const [exams, setExams] = useState<ExamSummary[]>([]);
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
   const [selectedExam, setSelectedExam] = useState<ExamDetail | null>(null);
+  const [editExam, setEditExam] = useState<ExamDraft | null>(null);
+  const [editMode, setEditMode] = useState(false);
   const [examDetailLoading, setExamDetailLoading] = useState(false);
   const [examDetailError, setExamDetailError] = useState("");
+  const [saveLoading, setSaveLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
 
@@ -710,6 +767,8 @@ function ExamTab() {
   useEffect(() => {
     if (!selectedExamId) {
       setSelectedExam(null);
+      setEditExam(null);
+      setEditMode(false);
       return;
     }
 
@@ -722,7 +781,11 @@ function ExamTab() {
         const res = await fetch(`/api/admin/exams?id=${selectedExamId}`);
         const data = await res.json();
         if (!cancelled) {
-          setSelectedExam(data.exam ?? null);
+          const exam = data.exam ?? null;
+          setSelectedExam(exam);
+          if (exam && !editMode) {
+            setEditExam(cloneExamToDraft(exam.exam));
+          }
         }
       } catch {
         if (!cancelled) {
@@ -739,7 +802,13 @@ function ExamTab() {
     return () => {
       cancelled = true;
     };
-  }, [selectedExamId]);
+  }, [selectedExamId, editMode]);
+
+  useEffect(() => {
+    if (selectedExam && !editMode) {
+      setEditExam(cloneExamToDraft(selectedExam.exam));
+    }
+  }, [selectedExam, editMode]);
 
   async function reloadExams() {
     const res = await fetch("/api/admin/exams");
@@ -768,6 +837,91 @@ function ExamTab() {
       setSelectedExam(null);
     }
     await reloadExams();
+  }
+
+  function startEditing() {
+    if (!selectedExam) return;
+    setEditExam(cloneExamToDraft(selectedExam.exam));
+    setEditMode(true);
+  }
+
+  function cancelEditing() {
+    if (selectedExam) {
+      setEditExam(cloneExamToDraft(selectedExam.exam));
+    }
+    setEditMode(false);
+  }
+
+  function updateExamField<K extends keyof ExamDraft>(field: K, value: ExamDraft[K]) {
+    setEditExam((prev) => (prev ? { ...prev, [field]: value } : prev));
+  }
+
+  function updateQuestion(index: number, updater: (question: ExamDraft["questions"][number]) => ExamDraft["questions"][number]) {
+    setEditExam((prev) => {
+      if (!prev) return prev;
+      const nextQuestions = prev.questions.map((question, questionIndex) => (questionIndex === index ? updater(question) : question));
+      return { ...prev, questions: nextQuestions };
+    });
+  }
+
+  function addQuestion() {
+    setEditExam((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        questions: [
+          ...prev.questions,
+          {
+            id: `draft-${Date.now()}`,
+            type: "mcq",
+            difficulty: "nhan_biet",
+            content: "",
+            options: ["", "", "", ""],
+            correctAnswer: "0",
+            explanation: "",
+            scoreWeight: 1,
+          },
+        ],
+      };
+    });
+  }
+
+  function removeQuestion(index: number) {
+    setEditExam((prev) => {
+      if (!prev) return prev;
+      const nextQuestions = prev.questions.filter((_, questionIndex) => questionIndex !== index);
+      return { ...prev, questions: nextQuestions };
+    });
+  }
+
+  async function saveEditedExam() {
+    if (!selectedExam || !editExam) return;
+
+    setSaveLoading(true);
+    setError("");
+    try {
+      const normalized = normalizeDraftExam(editExam);
+      const res = await fetch("/api/admin/exams", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectedExam.id, action: "update", exam: normalized }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error ?? "Lỗi lưu đề thi");
+      }
+
+      setEditMode(false);
+      await reloadExams();
+      const refresh = await fetch(`/api/admin/exams?id=${selectedExam.id}`);
+      const refreshData = await refresh.json();
+      setSelectedExam(refreshData.exam ?? null);
+      setEditExam(refreshData.exam ? cloneExamToDraft(refreshData.exam.exam) : null);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setSaveLoading(false);
+    }
   }
 
   function buildFormData() {
@@ -1032,6 +1186,30 @@ function ExamTab() {
                         <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{selectedExam.exam.description ?? "Không có mô tả."}</p>
                       </div>
                       <div className="flex flex-wrap gap-2 shrink-0">
+                        {!editMode ? (
+                          <button
+                            onClick={startEditing}
+                            className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 font-semibold hover:bg-indigo-100 transition-colors flex items-center gap-2"
+                          >
+                            <Pencil className="w-4 h-4" /> Chỉnh sửa
+                          </button>
+                        ) : (
+                          <>
+                            <button
+                              onClick={saveEditedExam}
+                              disabled={saveLoading}
+                              className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 disabled:opacity-60 transition-colors flex items-center gap-2"
+                            >
+                              <Save className="w-4 h-4" /> {saveLoading ? "Đang lưu..." : "Lưu thay đổi"}
+                            </button>
+                            <button
+                              onClick={cancelEditing}
+                              className="px-4 py-2 rounded-xl bg-gray-100 text-gray-700 font-semibold hover:bg-gray-200 transition-colors flex items-center gap-2"
+                            >
+                              <RotateCcw className="w-4 h-4" /> Hủy
+                            </button>
+                          </>
+                        )}
                         {selectedExam.status === "published" ? (
                           <button
                             onClick={() => handleExamAction(selectedExam.id, "unpublish")}
@@ -1064,67 +1242,272 @@ function ExamTab() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tổng điểm</p>
-                      <p className="mt-1 text-2xl font-bold text-gray-800">{selectedExam.exam.maxScore}</p>
-                    </div>
-                    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Thời gian</p>
-                      <p className="mt-1 text-2xl font-bold text-gray-800">{selectedExam.exam.timeLimit ?? "Không giới hạn"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Số câu</p>
-                      <p className="mt-1 text-2xl font-bold text-gray-800">{selectedExam.exam.questions.length}</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 max-h-130 overflow-y-auto pr-1 custom-scrollbar">
-                    {selectedExam.exam.questions.map((question, index) => (
-                      <div key={question.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Câu {index + 1}</p>
-                            <h5 className="mt-1 text-base font-bold text-gray-800 whitespace-pre-wrap">{question.content}</h5>
-                          </div>
-                          <span className={`shrink-0 px-2 py-1 text-xs font-semibold rounded-md ${question.type === "mcq" ? "bg-indigo-100 text-indigo-700" : "bg-amber-100 text-amber-700"}`}>
-                            {question.type === "mcq" ? "Trắc nghiệm" : "Tự luận"}
-                          </span>
+                  {!editMode && (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tổng điểm</p>
+                          <p className="mt-1 text-2xl font-bold text-gray-800">{selectedExam.exam.maxScore}</p>
                         </div>
-
-                        <div className="flex flex-wrap gap-2 text-xs font-semibold mb-3">
-                          <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600">{question.difficulty === "nhan_biet" ? "Nhận biết" : question.difficulty === "thong_hieu" ? "Thông hiểu" : "Vận dụng"}</span>
-                          <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-700">{question.scoreWeight} điểm</span>
-                          <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 font-mono">{question.id}</span>
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Thời gian</p>
+                          <p className="mt-1 text-2xl font-bold text-gray-800">{selectedExam.exam.timeLimit ?? "Không giới hạn"}</p>
                         </div>
-
-                        {question.type === "mcq" && question.options?.length ? (
-                          <div className="grid gap-2">
-                            {question.options.map((option, optionIndex) => {
-                              const isCorrect = String(optionIndex) === question.correctAnswer;
-                              return (
-                                <div key={optionIndex} className={`rounded-xl border px-3 py-2 text-sm ${isCorrect ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-gray-100 bg-gray-50 text-gray-700"}`}>
-                                  <span className="mr-2 font-bold">{String.fromCharCode(65 + optionIndex)}.</span>
-                                  {option}
-                                  {isCorrect && <span className="ml-2 text-xs font-semibold uppercase tracking-wide">Đáp án đúng</span>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700">
-                            <span className="font-semibold text-gray-500">Đáp án mẫu:</span> {question.correctAnswer}
-                          </div>
-                        )}
-
-                        {question.explanation && (
-                          <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                            <span className="font-semibold">Giải thích:</span> {question.explanation}
-                          </div>
-                        )}
+                        <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Số câu</p>
+                          <p className="mt-1 text-2xl font-bold text-gray-800">{selectedExam.exam.questions.length}</p>
+                        </div>
                       </div>
-                    ))}
-                  </div>
+
+                      <div className="space-y-3 max-h-130 overflow-y-auto pr-1 custom-scrollbar">
+                        {selectedExam.exam.questions.map((question, index) => (
+                          <div key={question.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Câu {index + 1}</p>
+                                <h5 className="mt-1 text-base font-bold text-gray-800 whitespace-pre-wrap">{question.content}</h5>
+                              </div>
+                              <span className={`shrink-0 px-2 py-1 text-xs font-semibold rounded-md ${question.type === "mcq" ? "bg-indigo-100 text-indigo-700" : "bg-amber-100 text-amber-700"}`}>
+                                {question.type === "mcq" ? "Trắc nghiệm" : "Tự luận"}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 text-xs font-semibold mb-3">
+                              <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600">{question.difficulty === "nhan_biet" ? "Nhận biết" : question.difficulty === "thong_hieu" ? "Thông hiểu" : "Vận dụng"}</span>
+                              <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-700">{question.scoreWeight} điểm</span>
+                              <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 font-mono">{question.id}</span>
+                            </div>
+
+                            {question.type === "mcq" && question.options?.length ? (
+                              <div className="grid gap-2">
+                                {question.options.map((option, optionIndex) => {
+                                  const isCorrect = String(optionIndex) === question.correctAnswer;
+                                  return (
+                                    <div key={optionIndex} className={`rounded-xl border px-3 py-2 text-sm ${isCorrect ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-gray-100 bg-gray-50 text-gray-700"}`}>
+                                      <span className="mr-2 font-bold">{String.fromCharCode(65 + optionIndex)}.</span>
+                                      {option}
+                                      {isCorrect && <span className="ml-2 text-xs font-semibold uppercase tracking-wide">Đáp án đúng</span>}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                                <span className="font-semibold text-gray-500">Đáp án mẫu:</span> {question.correctAnswer}
+                              </div>
+                            )}
+
+                            {question.explanation && (
+                              <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                                <span className="font-semibold">Giải thích:</span> {question.explanation}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+
+                  {editMode && editExam && (
+                    <div className="space-y-4 max-h-[calc(100vh-320px)] overflow-y-auto pr-1 custom-scrollbar">
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-semibold text-gray-700">Tên đề thi</label>
+                          <input
+                            value={editExam.title}
+                            onChange={(e) => updateExamField("title", e.target.value)}
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                          />
+                        </div>
+                        <div className="space-y-2 md:col-span-2">
+                          <label className="text-sm font-semibold text-gray-700">Mô tả</label>
+                          <textarea
+                            value={editExam.description ?? ""}
+                            onChange={(e) => updateExamField("description", e.target.value)}
+                            className="w-full min-h-28 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">Thời gian (phút)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={editExam.timeLimit ?? ""}
+                            onChange={(e) => updateExamField("timeLimit", e.target.value === "" ? null : Number(e.target.value))}
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-semibold text-gray-700">Tổng điểm</label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={editExam.maxScore}
+                            onChange={(e) => updateExamField("maxScore", Number(e.target.value))}
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 pt-2">
+                        <div>
+                          <h5 className="font-bold text-gray-800">Danh sách câu hỏi</h5>
+                          <p className="text-sm text-gray-500">Chỉnh trực tiếp từng câu, đáp án và lời giải.</p>
+                        </div>
+                        <button
+                          onClick={addQuestion}
+                          className="inline-flex items-center gap-2 rounded-xl bg-indigo-50 px-4 py-2 font-semibold text-indigo-700 transition-colors hover:bg-indigo-100"
+                        >
+                          <Plus className="h-4 w-4" /> Thêm câu
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        {editExam.questions.map((question, index) => (
+                          <div key={question.id} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+                            <div className="mb-3 flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Câu {index + 1}</p>
+                                <p className="text-xs text-gray-400 font-mono">{question.id}</p>
+                              </div>
+                              <button
+                                onClick={() => removeQuestion(index)}
+                                className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                              >
+                                Xóa câu
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                              <div className="space-y-2 md:col-span-2">
+                                <label className="text-sm font-semibold text-gray-700">Nội dung câu hỏi</label>
+                                <textarea
+                                  value={question.content}
+                                  onChange={(e) => updateQuestion(index, (current) => ({ ...current, content: e.target.value }))}
+                                  className="w-full min-h-24 rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-semibold text-gray-700">Loại câu</label>
+                                <select
+                                  value={question.type}
+                                  onChange={(e) =>
+                                    updateQuestion(index, (current) =>
+                                      e.target.value === "mcq"
+                                        ? { ...current, type: "mcq", options: current.options?.length ? current.options : ["", "", "", ""], correctAnswer: current.correctAnswer || "0" }
+                                        : { ...current, type: "essay", options: undefined, correctAnswer: current.correctAnswer || "" }
+                                    )
+                                  }
+                                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                >
+                                  <option value="mcq">Trắc nghiệm</option>
+                                  <option value="essay">Tự luận</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-semibold text-gray-700">Độ khó</label>
+                                <select
+                                  value={question.difficulty}
+                                  onChange={(e) => updateQuestion(index, (current) => ({ ...current, difficulty: e.target.value as ExamDraftQuestion["difficulty"] }))}
+                                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                >
+                                  <option value="nhan_biet">Nhận biết</option>
+                                  <option value="thong_hieu">Thông hiểu</option>
+                                  <option value="van_dung">Vận dụng</option>
+                                </select>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-sm font-semibold text-gray-700">Điểm</label>
+                                <input
+                                  type="number"
+                                  min={0.25}
+                                  step={0.25}
+                                  value={question.scoreWeight}
+                                  onChange={(e) => updateQuestion(index, (current) => ({ ...current, scoreWeight: Number(e.target.value) }))}
+                                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                />
+                              </div>
+
+                              {question.type === "mcq" ? (
+                                <div className="space-y-3 md:col-span-2">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <label className="text-sm font-semibold text-gray-700">Đáp án lựa chọn</label>
+                                    <button
+                                      onClick={() =>
+                                        updateQuestion(index, (current) => ({
+                                          ...current,
+                                          options: [...(current.options ?? []), ""],
+                                        }))
+                                      }
+                                      className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100"
+                                    >
+                                      <Plus className="h-3 w-3" /> Thêm đáp án
+                                    </button>
+                                  </div>
+                                  <div className="grid gap-2">
+                                    {(question.options ?? []).map((option, optionIndex) => (
+                                      <div key={optionIndex} className="flex gap-2">
+                                        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white font-bold text-gray-600">{String.fromCharCode(65 + optionIndex)}</span>
+                                        <input
+                                          value={option}
+                                          onChange={(e) =>
+                                            updateQuestion(index, (current) => {
+                                              const nextOptions = [...(current.options ?? [])];
+                                              nextOptions[optionIndex] = e.target.value;
+                                              return { ...current, options: nextOptions };
+                                            })
+                                          }
+                                          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                        />
+                                        <button
+                                          onClick={() =>
+                                            updateQuestion(index, (current) => {
+                                              const nextOptions = [...(current.options ?? [])].filter((_, idx) => idx !== optionIndex);
+                                              return { ...current, options: nextOptions };
+                                            })
+                                          }
+                                          className="rounded-xl bg-red-50 px-3 text-sm font-semibold text-red-700 hover:bg-red-100"
+                                        >
+                                          Xóa
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-sm font-semibold text-gray-700">Đáp án đúng</label>
+                                    <input
+                                      value={question.correctAnswer}
+                                      onChange={(e) => updateQuestion(index, (current) => ({ ...current, correctAnswer: e.target.value }))}
+                                      className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                      placeholder="0, 1, 2, 3..."
+                                    />
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="space-y-2 md:col-span-2">
+                                  <label className="text-sm font-semibold text-gray-700">Từ khóa / đáp án mẫu</label>
+                                  <textarea
+                                    value={question.correctAnswer}
+                                    onChange={(e) => updateQuestion(index, (current) => ({ ...current, correctAnswer: e.target.value }))}
+                                    className="w-full min-h-24 rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                  />
+                                </div>
+                              )}
+
+                              <div className="space-y-2 md:col-span-2">
+                                <label className="text-sm font-semibold text-gray-700">Giải thích</label>
+                                <textarea
+                                  value={question.explanation ?? ""}
+                                  onChange={(e) => updateQuestion(index, (current) => ({ ...current, explanation: e.target.value }))}
+                                  className="w-full min-h-24 rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="flex h-full min-h-125 items-center justify-center text-center text-gray-400">

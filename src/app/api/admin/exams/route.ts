@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminSession } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase";
-import { listExamSummaries, loadExamById } from "@/lib/exams";
+import { listExamSummaries, loadExamById, updateExamVersion } from "@/lib/exams";
+import { examSchema } from "@/lib/schema";
 
 export async function GET(req: NextRequest) {
   const isAdmin = await verifyAdminSession();
@@ -38,7 +39,7 @@ export async function PATCH(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { id, action } = body as { id?: string; action?: string };
+    const { id, action, exam } = body as { id?: string; action?: string; exam?: unknown };
 
     if (!id || !action) {
       return NextResponse.json({ error: "Thiếu tham số" }, { status: 400 });
@@ -56,6 +57,20 @@ export async function PATCH(req: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
       }
 
+      return NextResponse.json({ ok: true });
+    }
+
+    if (action === "update") {
+      if (!exam) {
+        return NextResponse.json({ error: "Thiếu dữ liệu đề thi" }, { status: 400 });
+      }
+
+      const parsed = examSchema.safeParse(exam);
+      if (!parsed.success) {
+        return NextResponse.json({ error: "Dữ liệu đề thi không hợp lệ", issues: parsed.error.issues.map((issue) => issue.message) }, { status: 400 });
+      }
+
+      await updateExamVersion(db, id, parsed.data);
       return NextResponse.json({ ok: true });
     }
 
