@@ -173,7 +173,7 @@ export default function AdminPage() {
 }
 
 function AdminDashboard() {
-  const [tab, setTab] = useState<"generate" | "pending" | "approved" | "exam" | "students" | "submissions">("generate");
+  const [tab, setTab] = useState<"dashboard" | "generate" | "pending" | "approved" | "exam" | "students" | "submissions">("dashboard");
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
@@ -192,6 +192,7 @@ function AdminDashboard() {
         {/* Animated Tabs */}
         <div className="flex p-1.5 bg-white border border-gray-200/80 rounded-2xl w-max shadow-sm overflow-x-auto max-w-full">
           {[
+            { id: "dashboard", label: "Tổng quan", icon: LayoutTemplate },
             { id: "generate", label: "Sinh câu hỏi", icon: Bot },
             { id: "pending", label: "Chờ duyệt", icon: ClipboardList },
             { id: "approved", label: "Đã duyệt", icon: CheckCircle2 },
@@ -227,6 +228,7 @@ function AdminDashboard() {
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2 }}
           >
+            {tab === "dashboard" && <DashboardTab />}
             {tab === "generate" && <GenerateTab />}
             {tab === "pending" && <QuestionListTab status="pending" />}
             {tab === "approved" && <QuestionListTab status="approved" />}
@@ -236,6 +238,168 @@ function AdminDashboard() {
           </motion.div>
         </AnimatePresence>
       </main>
+    </div>
+  );
+}
+
+function DashboardTab() {
+  const [dashboard, setDashboard] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/admin/dashboard?range=7d&class=all")
+      .then((res) => res.json())
+      .then((data) => {
+        if (mounted) setDashboard(data);
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  if (loading) {
+    return <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">Đang tải dashboard...</div>;
+  }
+
+  const summary = dashboard?.summary ?? {
+    activeStudents: 0,
+    totalStudents: 0,
+    practiceCount: 0,
+    practiceAccuracy: 0,
+    examCount: 0,
+    averageExamScore: 0,
+    pendingQuestions: 0,
+    geminiToday: 0,
+  };
+
+  const kpis = [
+    { label: "Học sinh hoạt động", value: `${summary.activeStudents}/${summary.totalStudents}` },
+    { label: "Lượt luyện tập", value: `${summary.practiceCount}`, suffix: `${summary.practiceAccuracy}% đúng` },
+    { label: "Bài thi đã nộp", value: `${summary.examCount}`, suffix: `${summary.averageExamScore}% TB` },
+    { label: "Câu chờ duyệt", value: `${summary.pendingQuestions}` },
+    { label: "Lượt gọi Gemini", value: `${summary.geminiToday}` },
+  ];
+
+  return (
+    <div className="space-y-4 rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-gray-800">Tổng quan</h2>
+          <p className="text-sm text-gray-500">Nhìn nhanh tình hình lớp học trong tuần qua.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        {kpis.map((item) => (
+          <div key={item.label} className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <p className="text-xs uppercase tracking-wide text-gray-500">{item.label}</p>
+            <p className="mt-2 text-2xl font-bold text-gray-800">{item.value}</p>
+            {item.suffix && <p className="mt-1 text-xs text-gray-500">{item.suffix}</p>}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <h3 className="font-semibold text-gray-800">Hoạt động gần đây</h3>
+          <div className="mt-3 space-y-2">
+            {(dashboard?.recentActivity ?? []).slice(0, 5).map((row: any) => (
+              <div key={`${row.kind}-${row.id}`} className="rounded-xl border border-gray-100 bg-white p-3 text-sm text-gray-700">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{row.studentName}</span>
+                  <span className="text-xs text-gray-500">{row.kind === "practice" ? "Luyện tập" : "Đề thi"}</span>
+                </div>
+                <div className="mt-1 text-xs text-gray-500">{row.className} • {row.title}</div>
+              </div>
+            ))}
+            {(!dashboard?.recentActivity || dashboard.recentActivity.length === 0) && (
+              <div className="text-sm text-gray-500">Chưa có hoạt động trong khoảng thời gian này.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+          <h3 className="font-semibold text-gray-800">Cảnh báo</h3>
+          <div className="mt-3 space-y-2">
+            {(dashboard?.alerts ?? []).map((alert: any) => (
+              <div key={alert.id} className="rounded-xl border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800">
+                {alert.label}: <span className="font-bold">{alert.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <LessonLinkEditor />
+      </div>
+    </div>
+  );
+}
+
+function LessonLinkEditor() {
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/admin/settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (mounted) setValue(data.value ?? "");
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  async function handleSave() {
+    setSaving(true);
+    setStatus("");
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonDocUrl: value }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Lỗi cập nhật link");
+      setStatus("Đã cập nhật link tài liệu.");
+    } catch (error) {
+      setStatus((error as Error).message || "Lỗi cập nhật link");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+      <h3 className="font-semibold text-gray-800">Link tài liệu bài học</h3>
+      <div className="mt-3 space-y-3">
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+          placeholder="https://docs.google.com/document/..."
+        />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {saving ? "Đang lưu..." : "Lưu link"}
+          </button>
+          {status && <span className="text-sm text-gray-600">{status}</span>}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1,9 +1,29 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
 export default function LessonTab() {
-  const lessonUrl = process.env.NEXT_PUBLIC_LESSON_DOC_URL ?? "";
+  const [lessonUrl, setLessonUrl] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+    fetch("/api/admin/settings")
+      .then((res) => res.json())
+      .then((data) => {
+        if (mounted) {
+          const nextUrl = typeof data?.value === "string" && data.value.trim() ? data.value : process.env.NEXT_PUBLIC_LESSON_DOC_URL ?? "";
+          setLessonUrl(nextUrl);
+        }
+      })
+      .catch(() => {
+        if (mounted) setLessonUrl(process.env.NEXT_PUBLIC_LESSON_DOC_URL ?? "");
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // Transform Google Docs URL: /edit → /preview, Google Slides → /embed
   function getEmbedUrl(url: string): string {

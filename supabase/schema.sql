@@ -113,6 +113,12 @@ create table admin_actions (
   created_at timestamptz default now()
 );
 
+create table site_settings (
+  key text primary key,
+  value text,
+  updated_at timestamptz default now()
+);
+
 create or replace view admin_submissions_view as
 select 'algo'::text as kind,
        sub.id::text as id,
