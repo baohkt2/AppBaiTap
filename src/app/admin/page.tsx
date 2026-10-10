@@ -665,7 +665,11 @@ function ExamTab() {
   const [diffVanDung, setDiffVanDung] = useState(2);
   const [loading, setLoading] = useState(false);
   const [loadingExams, setLoadingExams] = useState(true);
-  const [exams, setExams] = useState<any[]>([]);
+  const [exams, setExams] = useState<ExamSummary[]>([]);
+  const [selectedExamId, setSelectedExamId] = useState<string | null>(null);
+  const [selectedExam, setSelectedExam] = useState<ExamDetail | null>(null);
+  const [examDetailLoading, setExamDetailLoading] = useState(false);
+  const [examDetailError, setExamDetailError] = useState("");
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
 
@@ -678,7 +682,14 @@ function ExamTab() {
         const res = await fetch("/api/admin/exams");
         const data = await res.json();
         if (!cancelled) {
-          setExams(data.exams ?? []);
+          const nextExams = (data.exams ?? []) as ExamSummary[];
+          setExams(nextExams);
+          if (!selectedExamId && nextExams.length > 0) {
+            setSelectedExamId(nextExams[0].id);
+          }
+          if (selectedExamId && !nextExams.some((exam) => exam.id === selectedExamId)) {
+            setSelectedExamId(nextExams[0]?.id ?? null);
+          }
         }
       } catch {
         if (!cancelled) {
@@ -696,10 +707,48 @@ function ExamTab() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectedExamId) {
+      setSelectedExam(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadExamDetail() {
+      setExamDetailLoading(true);
+      setExamDetailError("");
+      try {
+        const res = await fetch(`/api/admin/exams?id=${selectedExamId}`);
+        const data = await res.json();
+        if (!cancelled) {
+          setSelectedExam(data.exam ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setSelectedExam(null);
+          setExamDetailError("Không thể tải nội dung đề thi.");
+        }
+      } finally {
+        if (!cancelled) setExamDetailLoading(false);
+      }
+    }
+
+    loadExamDetail();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedExamId]);
+
   async function reloadExams() {
     const res = await fetch("/api/admin/exams");
     const data = await res.json();
-    setExams(data.exams ?? []);
+    const nextExams = (data.exams ?? []) as ExamSummary[];
+    setExams(nextExams);
+    if (!nextExams.some((exam) => exam.id === selectedExamId)) {
+      setSelectedExamId(nextExams[0]?.id ?? null);
+    }
   }
 
   async function handleExamAction(id: string, action: "publish" | "unpublish" | "delete") {
@@ -715,6 +764,9 @@ function ExamTab() {
       return;
     }
 
+    if (action === "delete" && selectedExamId === id) {
+      setSelectedExam(null);
+    }
     await reloadExams();
   }
 
@@ -929,49 +981,197 @@ function ExamTab() {
             Chưa có đề thi nào.
           </div>
         ) : (
-          <div className="space-y-3">
-            {exams.map((exam) => (
-              <div key={exam.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-md ${exam.status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
-                      {exam.status === "published" ? "Đã xuất bản" : "Nháp"}
-                    </span>
-                    <span className="px-2 py-1 text-xs font-semibold rounded-md bg-gray-100 text-gray-600">{exam.questionCount} câu</span>
-                    <span className="px-2 py-1 text-xs font-semibold rounded-md bg-indigo-50 text-indigo-700">{exam.timeLimit ? `${exam.timeLimit} phút` : "Không giới hạn"}</span>
-                  </div>
-                  <h4 className="font-bold text-gray-800 truncate">{exam.title}</h4>
-                  <p className="text-sm text-gray-500 line-clamp-2 mt-1">{exam.description}</p>
-                  <p className="text-xs text-gray-400 mt-2 font-mono break-all">{exam.id}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                  {exam.status === "published" ? (
-                    <button
-                      onClick={() => handleExamAction(exam.id, "unpublish")}
-                      className="px-4 py-2 rounded-xl bg-amber-50 text-amber-700 font-semibold hover:bg-amber-100 transition-colors flex items-center gap-2"
-                    >
-                      <Undo2 className="w-4 h-4" /> Gỡ xuất bản
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleExamAction(exam.id, "publish")}
-                      className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-2"
-                    >
-                      <CheckCircle2 className="w-4 h-4" /> Xuất bản
-                    </button>
-                  )}
+          <div className="grid grid-cols-1 xl:grid-cols-[380px_minmax(0,1fr)] gap-4 items-start">
+            <div className="space-y-3 max-h-205 overflow-y-auto pr-1 custom-scrollbar">
+              {exams.map((exam) => {
+                const active = exam.id === selectedExamId;
+                return (
                   <button
-                    onClick={() => handleExamAction(exam.id, "delete")}
-                    className="px-4 py-2 rounded-xl bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition-colors flex items-center gap-2"
+                    key={exam.id}
+                    onClick={() => setSelectedExamId(exam.id)}
+                    className={`w-full text-left rounded-2xl border p-4 shadow-sm transition-all ${active ? "border-indigo-500 bg-indigo-50/50" : "border-gray-100 bg-white hover:border-indigo-200"}`}
                   >
-                    <Trash2 className="w-4 h-4" /> Xóa
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-md ${exam.status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                        {exam.status === "published" ? "Đã xuất bản" : "Nháp"}
+                      </span>
+                      <span className="px-2 py-1 text-xs font-semibold rounded-md bg-gray-100 text-gray-600">{exam.questionCount} câu</span>
+                    </div>
+                    <h4 className="font-bold text-gray-800 line-clamp-2">{exam.title}</h4>
+                    <p className="text-sm text-gray-500 line-clamp-2 mt-1">{exam.description}</p>
+                    <div className="mt-3 flex items-center justify-between gap-2 text-xs text-gray-400">
+                      <span className="font-mono break-all">{exam.id}</span>
+                      <span>{exam.timeLimit ? `${exam.timeLimit} phút` : "Không giới hạn"}</span>
+                    </div>
                   </button>
+                );
+              })}
+            </div>
+
+            <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm min-h-155 space-y-5">
+              {examDetailLoading ? (
+                <div className="space-y-4 animate-pulse">
+                  <div className="h-8 w-2/3 rounded bg-gray-100" />
+                  <div className="h-4 w-1/2 rounded bg-gray-100" />
+                  <div className="h-40 rounded-2xl bg-gray-50" />
+                  <div className="h-40 rounded-2xl bg-gray-50" />
                 </div>
-              </div>
-            ))}
+              ) : selectedExam ? (
+                <>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-md ${selectedExam.status === "published" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                        {selectedExam.status === "published" ? "Đã xuất bản" : "Nháp"}
+                      </span>
+                      <span className="px-2 py-1 text-xs font-semibold rounded-md bg-gray-100 text-gray-600">{selectedExam.exam.questions.length} câu</span>
+                      <span className="px-2 py-1 text-xs font-semibold rounded-md bg-indigo-50 text-indigo-700">{selectedExam.exam.timeLimit ? `${selectedExam.exam.timeLimit} phút` : "Không giới hạn"}</span>
+                    </div>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h4 className="text-2xl font-bold text-gray-800 leading-tight">{selectedExam.exam.title}</h4>
+                        <p className="text-sm text-gray-500 mt-1 whitespace-pre-wrap">{selectedExam.exam.description ?? "Không có mô tả."}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2 shrink-0">
+                        {selectedExam.status === "published" ? (
+                          <button
+                            onClick={() => handleExamAction(selectedExam.id, "unpublish")}
+                            className="px-4 py-2 rounded-xl bg-amber-50 text-amber-700 font-semibold hover:bg-amber-100 transition-colors flex items-center gap-2"
+                          >
+                            <Undo2 className="w-4 h-4" /> Gỡ xuất bản
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleExamAction(selectedExam.id, "publish")}
+                            className="px-4 py-2 rounded-xl bg-emerald-50 text-emerald-700 font-semibold hover:bg-emerald-100 transition-colors flex items-center gap-2"
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Xuất bản
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleExamAction(selectedExam.id, "delete")}
+                          className="px-4 py-2 rounded-xl bg-red-50 text-red-700 font-semibold hover:bg-red-100 transition-colors flex items-center gap-2"
+                        >
+                          <Trash2 className="w-4 h-4" /> Xóa
+                        </button>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 font-mono break-all">{selectedExam.id}</p>
+                  </div>
+
+                  {examDetailError && (
+                    <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                      {examDetailError}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tổng điểm</p>
+                      <p className="mt-1 text-2xl font-bold text-gray-800">{selectedExam.exam.maxScore}</p>
+                    </div>
+                    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Thời gian</p>
+                      <p className="mt-1 text-2xl font-bold text-gray-800">{selectedExam.exam.timeLimit ?? "Không giới hạn"}</p>
+                    </div>
+                    <div className="rounded-2xl border border-gray-100 bg-gray-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Số câu</p>
+                      <p className="mt-1 text-2xl font-bold text-gray-800">{selectedExam.exam.questions.length}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3 max-h-130 overflow-y-auto pr-1 custom-scrollbar">
+                    {selectedExam.exam.questions.map((question, index) => (
+                      <div key={question.id} className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Câu {index + 1}</p>
+                            <h5 className="mt-1 text-base font-bold text-gray-800 whitespace-pre-wrap">{question.content}</h5>
+                          </div>
+                          <span className={`shrink-0 px-2 py-1 text-xs font-semibold rounded-md ${question.type === "mcq" ? "bg-indigo-100 text-indigo-700" : "bg-amber-100 text-amber-700"}`}>
+                            {question.type === "mcq" ? "Trắc nghiệm" : "Tự luận"}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 text-xs font-semibold mb-3">
+                          <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600">{question.difficulty === "nhan_biet" ? "Nhận biết" : question.difficulty === "thong_hieu" ? "Thông hiểu" : "Vận dụng"}</span>
+                          <span className="px-2 py-1 rounded-md bg-emerald-50 text-emerald-700">{question.scoreWeight} điểm</span>
+                          <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-600 font-mono">{question.id}</span>
+                        </div>
+
+                        {question.type === "mcq" && question.options?.length ? (
+                          <div className="grid gap-2">
+                            {question.options.map((option, optionIndex) => {
+                              const isCorrect = String(optionIndex) === question.correctAnswer;
+                              return (
+                                <div key={optionIndex} className={`rounded-xl border px-3 py-2 text-sm ${isCorrect ? "border-emerald-200 bg-emerald-50 text-emerald-900" : "border-gray-100 bg-gray-50 text-gray-700"}`}>
+                                  <span className="mr-2 font-bold">{String.fromCharCode(65 + optionIndex)}.</span>
+                                  {option}
+                                  {isCorrect && <span className="ml-2 text-xs font-semibold uppercase tracking-wide">Đáp án đúng</span>}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                            <span className="font-semibold text-gray-500">Đáp án mẫu:</span> {question.correctAnswer}
+                          </div>
+                        )}
+
+                        {question.explanation && (
+                          <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                            <span className="font-semibold">Giải thích:</span> {question.explanation}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="flex h-full min-h-125 items-center justify-center text-center text-gray-400">
+                  <div>
+                    <ClipboardList className="mx-auto mb-4 h-12 w-12 opacity-50" />
+                    <p className="font-semibold">Chọn một đề thi để xem nội dung chi tiết</p>
+                    <p className="mt-1 text-sm">Các câu hỏi, đáp án và lời giải sẽ hiện ở khung này.</p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
     </div>
   );
 }
+
+type ExamSummary = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: "draft" | "published";
+  timeLimit: number | null;
+  maxScore: number;
+  questionCount: number;
+  createdAt: string | null;
+};
+
+type ExamDetail = {
+  id: string;
+  status: "draft" | "published";
+  createdAt: string | null;
+  exam: {
+    title: string;
+    description?: string;
+    timeLimit: number | null;
+    maxScore: number;
+    questions: Array<{
+      id: string;
+      type: "mcq" | "essay";
+      difficulty: "nhan_biet" | "thong_hieu" | "van_dung";
+      content: string;
+      options?: string[];
+      correctAnswer: string;
+      explanation?: string;
+      scoreWeight: number;
+    }>;
+  };
+};

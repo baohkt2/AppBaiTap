@@ -8,6 +8,28 @@ import { saveExamDraft } from "@/lib/exams";
 
 export const maxDuration = 60;
 
+function stripMetaLanguage(value: string): string {
+  return value.replace(/^(\s*(theo|dựa trên|từ)\s+(tài liệu|nguồn|đoạn văn|bài đọc)[,:\-\s]*)+/i, "").trim();
+}
+
+function sanitizeExamPayload(input: unknown): unknown {
+  if (typeof input === "string") {
+    return stripMetaLanguage(input);
+  }
+
+  if (Array.isArray(input)) {
+    return input.map((item) => sanitizeExamPayload(item));
+  }
+
+  if (input && typeof input === "object") {
+    return Object.fromEntries(
+      Object.entries(input as Record<string, unknown>).map(([key, value]) => [key, sanitizeExamPayload(value)])
+    );
+  }
+
+  return input;
+}
+
 type GeneratePayload = FormData | {
   documentText?: string;
   count?: string | number;
@@ -126,7 +148,8 @@ export async function POST(req: NextRequest) {
       }
     });
 
-    const parsed = examSchema.safeParse(raw);
+    const sanitized = sanitizeExamPayload(raw);
+    const parsed = examSchema.safeParse(sanitized);
     if (!parsed.success) {
       const errors = parsed.error.issues.map((e) => `${e.path.join(".")}: ${e.message}`);
       return NextResponse.json({ error: "AI trả về dữ liệu không hợp lệ", details: errors }, { status: 500 });

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminSession } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase";
-import { listExamSummaries } from "@/lib/exams";
+import { listExamSummaries, loadExamById } from "@/lib/exams";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const isAdmin = await verifyAdminSession();
   if (!isAdmin) {
     return NextResponse.json({ error: "Không có quyền" }, { status: 401 });
@@ -11,6 +11,18 @@ export async function GET() {
 
   try {
     const db = supabaseAdmin();
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+
+    if (id) {
+      const exam = await loadExamById(db, id, true);
+      if (!exam) {
+        return NextResponse.json({ error: "Không tìm thấy đề thi" }, { status: 404 });
+      }
+
+      return NextResponse.json({ exam });
+    }
+
     const exams = await listExamSummaries(db, true);
     return NextResponse.json({ exams });
   } catch (err) {

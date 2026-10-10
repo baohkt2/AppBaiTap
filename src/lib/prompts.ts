@@ -176,7 +176,13 @@ export function buildExamGeneratePrompt(
   documentText: string,
   configs: { count: number; mcqRatio: number; difficulties: Record<string, number> }
 ): { system: string; user: string } {
-  const system = EXAM_GENERATE_SYSTEM_PROMPT;
+  const system = `${EXAM_GENERATE_SYSTEM_PROMPT}
+
+QUY TẮC NGÔN NGỮ BẮT BUỘC:
+- Không được nhắc đến nguồn tài liệu, văn bản tham khảo, bài đọc, đề bài gốc, hay bất kỳ cụm từ meta nào kiểu "theo tài liệu", "dựa trên tài liệu", "theo đoạn văn", "theo nguồn".
+- Chỉ viết như đang ra đề trực tiếp cho học sinh.
+- Mọi câu hỏi phải tự nhiên, độc lập, và không có lời dẫn giải thích nguồn gốc của câu hỏi.
+- Nếu cần bối cảnh, hãy tích hợp bối cảnh vào nội dung câu hỏi một cách tự nhiên thay vì nhắc đến tài liệu.`;
   
   const user = `Yêu cầu tạo đề thi:
 - Số lượng câu hỏi: ${configs.count}
@@ -190,7 +196,8 @@ TÀI LIỆU NGUỒN ĐỂ SOẠN ĐỀ:
 """
 ${documentText}
 """
-Hãy xuất JSON đề thi!`;
+  LƯU Ý: tài liệu chỉ dùng làm căn cứ nội bộ để tạo câu hỏi. KHÔNG được trích dẫn, mở đầu, hay ám chỉ bằng các cụm như "theo tài liệu" trong kết quả.
+  Hãy xuất JSON đề thi!`;
 
   return { system, user };
 }
