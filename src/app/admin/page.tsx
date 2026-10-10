@@ -117,7 +117,7 @@ function AdminDashboard() {
   return (
     <div className="min-h-screen bg-[#F8FAFC]">
       <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-gray-100 shadow-sm">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center shadow-sm shadow-indigo-600/30">
               <Settings className="w-5 h-5 text-white" />
@@ -127,7 +127,7 @@ function AdminDashboard() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         {/* Animated Tabs */}
         <div className="flex p-1.5 bg-white border border-gray-200/80 rounded-2xl w-max shadow-sm overflow-x-auto max-w-full">
           {[
@@ -371,6 +371,7 @@ function QuestionListTab({ status }: { status: string }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editJson, setEditJson] = useState("");
   const [actionError, setActionError] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -379,7 +380,15 @@ function QuestionListTab({ status }: { status: string }) {
       try {
         const res = await fetch(`/api/admin/questions?status=${status}`);
         const data = await res.json();
-        if (!cancelled) setQuestions(data.questions ?? []);
+        if (!cancelled) {
+          const qs = data.questions ?? [];
+          setQuestions(qs);
+          if (qs.length > 0 && !qs.find((q: any) => q.id === selectedId)) {
+            setSelectedId(qs[0].id);
+          } else if (qs.length === 0) {
+            setSelectedId(null);
+          }
+        }
       } catch {
         /* ignore */
       } finally {
@@ -403,7 +412,11 @@ function QuestionListTab({ status }: { status: string }) {
       // Refresh list
       const res2 = await fetch(`/api/admin/questions?status=${status}`);
       const data2 = await res2.json();
-      setQuestions(data2.questions ?? []);
+      const qs = data2.questions ?? [];
+      setQuestions(qs);
+      if (qs.length > 0 && id === selectedId && action === "delete") {
+         setSelectedId(qs[0].id);
+      }
     } else {
       const d = await res.json();
       setActionError(d.error ?? "Lỗi");
@@ -435,10 +448,15 @@ function QuestionListTab({ status }: { status: string }) {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="animate-pulse bg-white/60 h-48 rounded-3xl border border-gray-100" />
-        ))}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-1 space-y-4">
+           {[1, 2, 3].map((i) => (
+             <div key={i} className="animate-pulse bg-white/60 h-32 rounded-2xl border border-gray-100" />
+           ))}
+        </div>
+        <div className="lg:col-span-2">
+           <div className="animate-pulse bg-white/60 h-[600px] rounded-3xl border border-gray-100" />
+        </div>
       </div>
     );
   }
@@ -455,6 +473,8 @@ function QuestionListTab({ status }: { status: string }) {
     );
   }
 
+  const selectedQuestion = questions.find((q) => q.id === selectedId) || questions[0];
+
   return (
     <div className="space-y-6">
       {actionError && (
@@ -463,120 +483,114 @@ function QuestionListTab({ status }: { status: string }) {
           <p className="text-sm font-semibold">{actionError}</p>
         </div>
       )}
-      {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-      {questions.map((q: any) => (
-        <motion.div
-          key={q.id}
-          layout
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-300 space-y-6"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-            <div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="px-3 py-1 bg-indigo-50 text-indigo-700 font-semibold text-xs rounded-full border border-indigo-100">
-                  {MODE_LABELS[q.mode as keyof typeof MODE_LABELS] ?? q.mode}
-                </span>
-                <span className="px-3 py-1 bg-purple-50 text-purple-700 font-semibold text-xs rounded-full border border-purple-100">
-                  {STRUCTURE_LABELS[q.type as keyof typeof STRUCTURE_LABELS] ?? q.type}
-                </span>
-                <span className="text-gray-400 text-xs font-mono bg-gray-50 px-2 py-1 rounded-md">{q.id}</span>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* LEFT PANE: List */}
+        <div className="lg:col-span-1 space-y-4 max-h-[calc(100vh-250px)] overflow-y-auto pr-2 custom-scrollbar pb-10">
+          {questions.map((q: any) => {
+            const isActive = q.id === selectedQuestion?.id;
+            return (
+              <motion.div
+                key={q.id}
+                layout
+                onClick={() => setSelectedId(q.id)}
+                className={`cursor-pointer rounded-2xl p-4 transition-all duration-200 border-2 ${
+                  isActive
+                    ? "bg-indigo-50/50 border-indigo-500 shadow-md shadow-indigo-100"
+                    : "bg-white border-gray-100 hover:border-indigo-200 hover:shadow-sm"
+                }`}
+              >
+                <div className="flex flex-wrap items-center gap-2 mb-2">
+                  <span className={`px-2 py-0.5 font-semibold text-[10px] rounded-md ${isActive ? "bg-indigo-100 text-indigo-800" : "bg-gray-100 text-gray-600"}`}>
+                    {MODE_LABELS[q.mode as keyof typeof MODE_LABELS] ?? q.mode}
+                  </span>
+                  <span className={`px-2 py-0.5 font-semibold text-[10px] rounded-md ${isActive ? "bg-purple-100 text-purple-800" : "bg-gray-100 text-gray-600"}`}>
+                    {STRUCTURE_LABELS[q.type as keyof typeof STRUCTURE_LABELS] ?? q.type}
+                  </span>
+                </div>
+                <h3 className={`font-bold text-sm leading-snug line-clamp-2 ${isActive ? "text-indigo-950" : "text-gray-800"}`}>
+                  {q.data?.title ?? "Chưa có tiêu đề"}
+                </h3>
+                <p className="text-gray-500 text-xs mt-2 font-mono truncate">{q.id}</p>
+              </motion.div>
+            );
+          })}
+        </div>
+
+        {/* RIGHT PANE: Details */}
+        <div className="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-gray-100 lg:sticky lg:top-24 flex flex-col min-h-[600px]">
+          {selectedQuestion ? (
+            <div className="space-y-6 flex-1 flex flex-col">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800 leading-snug">{selectedQuestion.data?.title ?? "Chưa có tiêu đề"}</h3>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-gray-400 text-xs font-mono bg-gray-50 px-2 py-1 rounded-md">{selectedQuestion.id}</span>
+                  </div>
+                  {selectedQuestion.data?.scenario && (
+                    <p className="text-gray-600 text-sm mt-4 leading-relaxed bg-gray-50/80 p-4 rounded-2xl border border-gray-100">
+                      {selectedQuestion.data.scenario}
+                    </p>
+                  )}
+                </div>
+
+                {/* Quick Actions */}
+                <div className="flex items-center gap-1 shrink-0 bg-gray-50/80 p-1.5 rounded-2xl border border-gray-100">
+                  <button
+                    onClick={() => {
+                      setEditingId(selectedQuestion.id);
+                      setEditJson(JSON.stringify(selectedQuestion.data, null, 2));
+                      setActionError("");
+                    }}
+                    className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white hover:shadow-sm rounded-xl transition-all"
+                    title="Sửa JSON"
+                  >
+                    <Code2 className="w-5 h-5" />
+                  </button>
+                  {status === "pending" && (
+                    <button
+                      onClick={() => handleAction(selectedQuestion.id, "approve")}
+                      className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-white hover:shadow-sm rounded-xl transition-all"
+                      title="Duyệt"
+                    >
+                      <Check className="w-5 h-5" />
+                    </button>
+                  )}
+                  {status === "approved" && (
+                    <button
+                      onClick={() => handleAction(selectedQuestion.id, "unpublish")}
+                      className="p-2 text-gray-500 hover:text-amber-600 hover:bg-white hover:shadow-sm rounded-xl transition-all"
+                      title="Gỡ duyệt"
+                    >
+                      <Undo2 className="w-5 h-5" />
+                    </button>
+                  )}
+                  <div className="w-px h-6 bg-gray-200 mx-1"></div>
+                  <button
+                    onClick={() => handleAction(selectedQuestion.id, "delete")}
+                    className="p-2 text-gray-500 hover:text-red-600 hover:bg-white hover:shadow-sm rounded-xl transition-all"
+                    title="Xóa"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
-              <h3 className="text-xl font-bold text-gray-800 leading-snug">{q.data?.title ?? "Chưa có tiêu đề"}</h3>
-              {q.data?.scenario && (
-                <p className="text-gray-600 text-sm mt-2 leading-relaxed bg-gray-50/50 p-3 rounded-xl border border-gray-100">
-                  {q.data.scenario}
-                </p>
+
+              {/* Flowchart preview */}
+              {selectedQuestion.data?.nodes && selectedQuestion.data?.edges && (
+                <div className="bg-gradient-to-b from-gray-50/80 to-white rounded-2xl p-4 border border-gray-100 overflow-hidden flex-1 min-h-[400px] relative">
+                  <FlowDiagram nodes={selectedQuestion.data.nodes} edges={selectedQuestion.data.edges} blanks={selectedQuestion.data.blanks ?? []} />
+                </div>
               )}
             </div>
-
-            {/* Quick Actions Desktop */}
-            <div className="hidden sm:flex items-center gap-1 shrink-0 bg-gray-50/80 p-1.5 rounded-2xl border border-gray-100">
-              <button
-                onClick={() => {
-                  setEditingId(q.id);
-                  setEditJson(JSON.stringify(q.data, null, 2));
-                  setActionError("");
-                }}
-                className="p-2 text-gray-500 hover:text-indigo-600 hover:bg-white hover:shadow-sm rounded-xl transition-all"
-                title="Sửa JSON"
-              >
-                <Code2 className="w-5 h-5" />
-              </button>
-              {status === "pending" && (
-                <button
-                  onClick={() => handleAction(q.id, "approve")}
-                  className="p-2 text-gray-500 hover:text-emerald-600 hover:bg-white hover:shadow-sm rounded-xl transition-all"
-                  title="Duyệt"
-                >
-                  <Check className="w-5 h-5" />
-                </button>
-              )}
-              {status === "approved" && (
-                <button
-                  onClick={() => handleAction(q.id, "unpublish")}
-                  className="p-2 text-gray-500 hover:text-amber-600 hover:bg-white hover:shadow-sm rounded-xl transition-all"
-                  title="Gỡ duyệt"
-                >
-                  <Undo2 className="w-5 h-5" />
-                </button>
-              )}
-              <div className="w-px h-6 bg-gray-200 mx-1"></div>
-              <button
-                onClick={() => handleAction(q.id, "delete")}
-                className="p-2 text-gray-500 hover:text-red-600 hover:bg-white hover:shadow-sm rounded-xl transition-all"
-                title="Xóa"
-              >
-                <Trash2 className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-
-          {/* Flowchart preview */}
-          {q.data?.nodes && q.data?.edges && (
-            <div className="bg-gradient-to-b from-gray-50/80 to-white rounded-2xl p-4 border border-gray-100 overflow-hidden">
-              <FlowDiagram nodes={q.data.nodes} edges={q.data.edges} blanks={q.data.blanks ?? []} />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-400">
+              <ClipboardList className="w-12 h-12 mb-4 opacity-50" />
+              <p>Chọn một câu hỏi để xem chi tiết</p>
             </div>
           )}
-
-          {/* Quick Actions Mobile */}
-          <div className="flex sm:hidden items-center gap-2 pt-4 border-t border-gray-100 flex-wrap">
-            <button
-              onClick={() => {
-                setEditingId(q.id);
-                setEditJson(JSON.stringify(q.data, null, 2));
-                setActionError("");
-              }}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition-colors"
-            >
-              <Code2 className="w-4 h-4" /> Sửa
-            </button>
-            {status === "pending" && (
-              <button
-                onClick={() => handleAction(q.id, "approve")}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-sm font-semibold rounded-xl transition-colors"
-              >
-                <Check className="w-4 h-4" /> Duyệt
-              </button>
-            )}
-            {status === "approved" && (
-              <button
-                onClick={() => handleAction(q.id, "unpublish")}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-amber-100 hover:bg-amber-200 text-amber-800 text-sm font-semibold rounded-xl transition-colors"
-              >
-                <Undo2 className="w-4 h-4" /> Gỡ
-              </button>
-            )}
-            <button
-              onClick={() => handleAction(q.id, "delete")}
-              className="flex-none flex items-center justify-center px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        </motion.div>
-      ))}
+        </div>
+      </div>
 
       {/* Edit JSON Modal */}
       <AnimatePresence>
