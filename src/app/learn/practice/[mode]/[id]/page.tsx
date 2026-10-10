@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import SapXepMode from "./SapXepMode";
 import DienKhuyetMode from "./DienKhuyetMode";
@@ -21,6 +21,7 @@ interface MaskedQuestion {
 
 export default function QuestionPage() {
   const params = useParams();
+  const router = useRouter();
   const mode = params.mode as string;
   const id = params.id as string;
   const [question, setQuestion] = useState<MaskedQuestion | null>(null);
@@ -75,23 +76,23 @@ export default function QuestionPage() {
       {/* Header */}
       <div className="flex items-center gap-3 relative z-50">
         <div className="flex items-center gap-1">
-          <Link
-            href={`/learn/practice/${mode}`}
+          <button
+            onClick={() => router.push(`/learn/practice/${mode}`)}
             className="p-2 rounded-lg hover:bg-black/5 transition-colors shrink-0"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-          </Link>
-          <Link
-            href={`/learn`}
+          </button>
+          <button
+            onClick={() => router.push(`/learn`)}
             className="p-2 rounded-lg hover:bg-black/5 transition-colors shrink-0"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
-          </Link>
+          </button>
         </div>
         <div className="min-w-0">
           <h1 className="text-base font-bold truncate">{question.title}</h1>

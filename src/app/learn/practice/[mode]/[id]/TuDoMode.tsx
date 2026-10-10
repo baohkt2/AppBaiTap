@@ -176,6 +176,10 @@ interface SubmitResult {
   message: string;
   wrongNodeIds?: string[];
   wrongEdgeIds?: string[];
+  modelAnswer?: {
+    nodes: any[];
+    edges: any[];
+  };
 }
 
 export default function TuDoMode({ question, questionId }: Props) {
@@ -696,8 +700,8 @@ export default function TuDoMode({ question, questionId }: Props) {
               <h3 className="font-bold mb-3 text-lg">Đáp án mẫu</h3>
               <div className="flex-1 overflow-auto bg-gray-50 rounded-lg p-2">
                 <FlowDiagram
-                  nodes={question.nodes ?? []}
-                  edges={question.edges ?? []}
+                  nodes={result?.modelAnswer?.nodes ?? []}
+                  edges={result?.modelAnswer?.edges ?? []}
                 />
               </div>
               <button 
