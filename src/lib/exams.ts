@@ -4,20 +4,7 @@ import { randomUUID } from "crypto";
 import { examQuestionSchema, examSchema, type Exam, type ExamQuestion } from "./schema";
 
 type DbClient = {
-  from: (table: string) => QueryBuilder;
-};
-
-type QueryResult<T> = Promise<{ data: T | null; error: { message: string } | null }>;
-
-type QueryBuilder = {
-  select(columns: string): QueryBuilder;
-  insert(values: unknown): QueryResult<null>;
-  update(values: unknown): QueryBuilder;
-  delete(): QueryBuilder;
-  eq(column: string, value: string): QueryBuilder;
-  order(column: string, options: { ascending: boolean }): QueryBuilder;
-  maybeSingle(): QueryResult<unknown>;
-  single(): QueryResult<unknown>;
+  from: (...args: any[]) => any;
 };
 
 type ExamRow = {
@@ -110,7 +97,7 @@ function normalizeExam(row: ExamRow, questionRows: ExamQuestionRow[]): LoadedExa
 export async function saveExamDraft(db: DbClient, exam: Exam) {
   const examId = `exam-${randomUUID()}`;
 
-  const { error: examError } = await db.from("exams").insert({
+  const { error: examError } = await (db.from("exams") as any).insert({
     id: examId,
     title: exam.title,
     description: exam.description ?? null,
@@ -136,9 +123,9 @@ export async function saveExamDraft(db: DbClient, exam: Exam) {
     order_index: index,
   }));
 
-  const { error: questionsError } = await db.from("exam_questions").insert(questionRows);
+  const { error: questionsError } = await (db.from("exam_questions") as any).insert(questionRows);
   if (questionsError) {
-    await db.from("exams").delete().eq("id", examId);
+    await (db.from("exams") as any).delete().eq("id", examId);
     throw new Error(questionsError.message);
   }
 
@@ -146,8 +133,7 @@ export async function saveExamDraft(db: DbClient, exam: Exam) {
 }
 
 export async function loadExamById(db: DbClient, examId: string, includeDraft = false): Promise<LoadedExam | null> {
-  const { data: examRowRaw, error: examError } = await db
-    .from("exams")
+  const { data: examRowRaw, error: examError } = await (db.from("exams") as any)
     .select("id, title, description, time_limit, max_score, status, created_at")
     .eq("id", examId)
     .maybeSingle();
@@ -159,8 +145,7 @@ export async function loadExamById(db: DbClient, examId: string, includeDraft = 
       return null;
     }
 
-    const { data: questionRowsRaw, error: questionError } = await db
-      .from("exam_questions")
+    const { data: questionRowsRaw, error: questionError } = await (db.from("exam_questions") as any)
       .select("id, type, difficulty, content, options, correct_answer, explanation, score_weight, order_index")
       .eq("exam_id", examId)
       .order("order_index", { ascending: true });
@@ -174,8 +159,7 @@ export async function loadExamById(db: DbClient, examId: string, includeDraft = 
     return normalizeExam(examRow, questionRows);
   }
 
-  const { data: legacyRowRaw, error: legacyError } = await db
-    .from("questions")
+  const { data: legacyRowRaw, error: legacyError } = await (db.from("questions") as any)
     .select("id, data, status, created_at")
     .eq("id", examId)
     .eq("mode", "exam")
@@ -205,8 +189,7 @@ export async function loadExamById(db: DbClient, examId: string, includeDraft = 
 }
 
 export async function listExamSummaries(db: DbClient, includeDraft = false): Promise<ExamSummary[]> {
-  const { data: examRowsRaw, error: examError } = await db
-    .from("exams")
+  const { data: examRowsRaw, error: examError } = await (db.from("exams") as any)
     .select("id, title, description, status, time_limit, max_score, created_at")
     .order("created_at", { ascending: false });
 
@@ -216,7 +199,7 @@ export async function listExamSummaries(db: DbClient, includeDraft = false): Pro
     throw new Error(examError.message);
   }
 
-  const { data: questionRowsRaw } = await db.from("exam_questions").select("exam_id");
+  const { data: questionRowsRaw } = await (db.from("exam_questions") as any).select("exam_id");
   const questionRows = (questionRowsRaw ?? []) as Array<{ exam_id: string }>;
   const countMap = new Map<string, number>();
   for (const row of questionRows ?? []) {

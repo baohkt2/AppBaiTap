@@ -12,6 +12,11 @@ type GeneratePayload = FormData | {
   documentText?: string;
   count?: string | number;
   mcqRatio?: string | number;
+  difficulties?: {
+    nhan_biet?: string | number;
+    thong_hieu?: string | number;
+    van_dung?: string | number;
+  };
   nhan_biet?: string | number;
   thong_hieu?: string | number;
   van_dung?: string | number;
@@ -32,7 +37,7 @@ async function extractSourceDocument(payload: GeneratePayload) {
 
       if (fileName.endsWith(".pdf") || fileValue.type === "application/pdf") {
         const pdfModule = await import("pdf-parse");
-        const pdfParse = (pdfModule.default ?? pdfModule) as unknown as (input: Buffer) => Promise<{ text: string }>;
+        const pdfParse = (pdfModule as unknown as { default: (input: Buffer) => Promise<{ text: string }> }).default;
         const result = await pdfParse(buffer);
         return { documentText: result.text.trim() };
       }
@@ -47,8 +52,10 @@ async function extractSourceDocument(payload: GeneratePayload) {
     }
   }
 
-  if (typeof payload.documentText === "string" && payload.documentText.trim()) {
-    return { documentText: payload.documentText.trim() };
+  const textPayload = payload as Exclude<GeneratePayload, FormData>;
+  const textValue = textPayload.documentText;
+  if (typeof textValue === "string" && textValue.trim()) {
+    return { documentText: textValue.trim() };
   }
 
   throw new Error("Thiếu tài liệu nguồn");
@@ -63,16 +70,23 @@ export async function POST(req: NextRequest) {
   try {
     const contentType = req.headers.get("content-type") ?? "";
     const payload: GeneratePayload = contentType.includes("multipart/form-data") ? await req.formData() : await req.json();
+    const fields = payload instanceof FormData ? {
+      count: payload.get("count"),
+      mcqRatio: payload.get("mcqRatio"),
+      difficulties: {
+        nhan_biet: payload.get("nhan_biet"),
+        thong_hieu: payload.get("thong_hieu"),
+        van_dung: payload.get("van_dung"),
+      },
+    } : payload;
 
-    const count = Number(payload instanceof FormData ? payload.get("count") : payload.count ?? 10) || 10;
-    const mcqRatio = Number(payload instanceof FormData ? payload.get("mcqRatio") : payload.mcqRatio ?? 0.8) || 0.8;
-    const difficulties = payload instanceof FormData
-      ? {
-          nhan_biet: Number(payload.get("nhan_biet") ?? 4) || 4,
-          thong_hieu: Number(payload.get("thong_hieu") ?? 4) || 4,
-          van_dung: Number(payload.get("van_dung") ?? 2) || 2,
-        }
-      : payload.difficulties ?? { nhan_biet: 4, thong_hieu: 4, van_dung: 2 };
+    const count = Number(fields.count ?? 10) || 10;
+    const mcqRatio = Number(fields.mcqRatio ?? 0.8) || 0.8;
+    const difficulties = {
+      nhan_biet: Number(fields.difficulties?.nhan_biet ?? 4) || 4,
+      thong_hieu: Number(fields.difficulties?.thong_hieu ?? 4) || 4,
+      van_dung: Number(fields.difficulties?.van_dung ?? 2) || 2,
+    };
 
     const { documentText } = await extractSourceDocument(payload);
 
